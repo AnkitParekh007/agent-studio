@@ -32,6 +32,7 @@ import type { RequestContext } from '../auth/auth.types.js';
 import { AuditService } from '../core/audit.service.js';
 import { logWarn } from '../core/logger.js';
 import { MetricsService } from '../core/metrics.service.js';
+import { getTracer } from '../core/otel.js';
 import { DB, ENV, RUNTIME_REGISTRY, type Db, type Env, type Registry } from '../core/tokens.js';
 
 @Injectable()
@@ -48,6 +49,26 @@ export class GatewayService {
   ) {}
 
   async startSession(
+    ctx: RequestContext,
+    input: { publicationId: string; message?: string },
+  ) {
+    const span = getTracer().startSpan('gateway.startSession', {
+      attributes: {
+        'organization.id': ctx.organizationId,
+        'publication.id': input.publicationId,
+      },
+    });
+    try {
+      return await this.startSessionInner(ctx, input);
+    } catch (err) {
+      span.recordException(err as Error);
+      throw err;
+    } finally {
+      span.end();
+    }
+  }
+
+  private async startSessionInner(
     ctx: RequestContext,
     input: { publicationId: string; message?: string },
   ) {
@@ -99,6 +120,7 @@ export class GatewayService {
       initialMessage: input.message,
       metadata: {
         correlationId,
+        organizationId: ctx.organizationId,
         publicationId: publication.id,
         toolPermissions: version.config.toolPermissions,
         maxToolCalls: version.config.runtimeLimits.maxToolCalls,

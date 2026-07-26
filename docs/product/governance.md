@@ -1,20 +1,36 @@
-# Governance (Phase 7)
+# Governance
 
 Org-scoped controls for skills, MCP, knowledge, budgets, tool permissions, and evals.
 
-**Honest scope:** Skills/MCP/knowledge are **catalogs** attached to versions. The gateway enforces tool allowlists and budgets today; it does **not** open live MCP transports or run a knowledge retrieval pipeline yet.
-
 ## Skills
 
-Reusable prompt fragments (+ optional tool name hints) attached to agent versions via `skillIds`.
+Reusable prompt fragments (+ optional tool name hints) attached to agent versions via `skillIds`. Folded into instructions at provision and playground start.
 
-## MCP servers
+## MCP servers (live)
 
-Org catalog of MCP endpoints. Optional `secretReferenceId` links credentials stored via `/api/secrets` that **never** appear in public app or desktop payloads. Versions attach servers by id (`mcpServerIds`). Live MCP session bridging is future work.
+Org catalog of MCP endpoints. Optional `secretReferenceId` links credentials from `/api/secrets` that **never** appear in public app or desktop payloads.
 
-## Knowledge sources
+At provision and playground compose time the control plane:
 
-Registered URI/refs for retrieval policy. Attached via `knowledgeSourceIds` and folded into server-side instructions at provision/playground time. This is not a vector/RAG service yet.
+1. Resolves the secret (if any)
+2. Calls MCP `tools/list` over HTTP JSON-RPC
+3. Injects the live tool catalog into instructions
+
+On the **local** runtime, users can invoke tools with:
+
+```text
+mcp:<serverKey>.<toolName> {"arg":"value"}
+```
+
+That path runs server-side via `RuntimeContextService` / `POST /api/integrations/mcp/call`. Credentials never leave the API.
+
+Claude Managed Agents receive the tool catalog in the system prompt; native Claude↔MCP bridging remains provider-specific.
+
+## Knowledge sources (live retrieval)
+
+Registered URI/refs (`http(s)` or inline `text:…`). At provision/playground the server **fetches** content (size-capped) and injects it into instructions as retrieved knowledge—not only URI lists.
+
+Operator probe: `POST /api/integrations/knowledge/retrieve`.
 
 ## Budgets & tools
 
@@ -25,8 +41,6 @@ Version config fields:
 - `runtimeLimits.maxToolCalls` — hard cap per session
 
 Org settings (`maxUsdMonthly`, `maxConcurrentSessions`) plus env rate limits further constrain the gateway.
-
-Violations emit `error` events, audit records (`session.policy_denied` / `session.budget_exceeded`), and cancel the runtime session.
 
 ## Evals
 

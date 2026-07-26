@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@agent-studio/domain": "workspace:*",
+    "@opentelemetry/api": "^1.9.0",
     "better-auth": "^1.2.5",
     "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.5",

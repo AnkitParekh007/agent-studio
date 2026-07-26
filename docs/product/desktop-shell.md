@@ -20,3 +20,6 @@ Phase 6 ships a Tauri 2 desktop client that opens **published** Agent Studio app
 
 - Native: `pnpm desktop:dev` (Tauri + Vite on `:1420`)
 - UI preview: Vite-only `pnpm --filter @agent-studio/desktop-shell dev`
+- Package: `pnpm desktop:build` (NSIS + updater artifacts)
+
+Shipping details (signing, updater pubkey, CDN endpoints): `docs/operations/desktop-releases.md`.

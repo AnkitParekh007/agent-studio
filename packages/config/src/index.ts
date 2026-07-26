@@ -25,6 +25,9 @@ const envSchema = z.object({
   GATEWAY_MAX_CONCURRENT_SESSIONS: z.coerce.number().int().positive().default(20),
   /** Soft session wall-clock timeout for gateway streams (ms). */
   GATEWAY_SESSION_TIMEOUT_MS: z.coerce.number().int().positive().default(900_000),
+  /** OTLP HTTP traces endpoint, e.g. http://localhost:4318/v1/traces */
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: z.string().optional().default(''),
+  OTEL_SERVICE_NAME: z.string().default('agent-studio-api'),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

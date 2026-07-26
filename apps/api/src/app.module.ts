@@ -11,6 +11,7 @@ import { OrgsModule } from './orgs/orgs.module.js';
 import { GovernanceModule } from './governance/governance.module.js';
 import { PlaygroundModule } from './playground/playground.module.js';
 import { SecretsModule } from './secrets/secrets.module.js';
+import { IntegrationsModule } from './integrations/integrations.module.js';
 
 @Module({
   imports: [
@@ -25,7 +26,9 @@ import { SecretsModule } from './secrets/secrets.module.js';
     GovernanceModule,
     SecretsModule,
     AuditModule,
+    IntegrationsModule,
   ],
   controllers: [HealthController],
 })
 export class AppModule {}
+
