@@ -4,14 +4,21 @@ import {
   agentVersions,
   auditEvents,
   createDb,
+  knowledgeSources,
+  mcpServers,
   newId,
+  skills,
 } from '@agent-studio/database';
-import { composeInstructions, type AgentVersionConfig } from '@agent-studio/domain';
+import {
+  appendGovernanceContext,
+  composeInstructions,
+  type AgentVersionConfig,
+} from '@agent-studio/domain';
 import { RuntimeProviderRegistry } from '@agent-studio/runtime-core';
 import { tryCreateClaudeAdapter } from '@agent-studio/runtime-claude';
 import { LocalRuntimeAdapter } from '@agent-studio/runtime-local';
 import { Worker } from 'bullmq';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 async function main() {
   const env = loadEnv();
@@ -63,13 +70,59 @@ async function main() {
       });
 
       try {
+        const skillRows = config.skillIds?.length
+          ? await db
+              .select()
+              .from(skills)
+              .where(and(eq(skills.organizationId, organizationId), inArray(skills.id, config.skillIds)))
+          : [];
+        const mcpRows = config.mcpServerIds?.length
+          ? await db
+              .select()
+              .from(mcpServers)
+              .where(
+                and(
+                  eq(mcpServers.organizationId, organizationId),
+                  inArray(mcpServers.id, config.mcpServerIds),
+                ),
+              )
+          : [];
+        const knowledgeRows = config.knowledgeSourceIds?.length
+          ? await db
+              .select()
+              .from(knowledgeSources)
+              .where(
+                and(
+                  eq(knowledgeSources.organizationId, organizationId),
+                  inArray(knowledgeSources.id, config.knowledgeSourceIds),
+                ),
+              )
+          : [];
+
+        const instructions = appendGovernanceContext(composeInstructions(config), {
+          skills: skillRows.map((s) => ({ name: s.name, promptFragment: s.promptFragment })),
+          knowledgeSources: knowledgeRows.map((k) => ({
+            name: k.name,
+            uri: k.uri,
+            description: k.description,
+          })),
+          mcpServers: mcpRows.map((m) => ({ name: m.name, endpointUrl: m.endpointUrl })),
+        });
+
         const provisioned = await adapter.provisionDeployment({
           organizationId,
           agentVersionId: versionId,
           configuration: {
             name: `agent-${agentId}`,
             model: config.model,
-            instructions: composeInstructions(config),
+            instructions,
+            metadata: {
+              skillIds: config.skillIds,
+              mcpServerIds: config.mcpServerIds,
+              knowledgeSourceIds: config.knowledgeSourceIds,
+              toolPermissions: config.toolPermissions,
+              budgets: config.budgets,
+            },
           },
         });
 

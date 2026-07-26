@@ -17,6 +17,12 @@ export default function AgentDetailPage() {
   const [raw, setRaw] = useState('');
   const [model, setModel] = useState('claude-sonnet-4-5');
   const [provider, setProvider] = useState<'local' | 'claude'>('local');
+  const [toolPermissions, setToolPermissions] = useState('local.echo');
+  const [maxTokens, setMaxTokens] = useState('5000');
+  const [maxToolCalls, setMaxToolCalls] = useState('50');
+  const [skillIds, setSkillIds] = useState('');
+  const [mcpServerIds, setMcpServerIds] = useState('');
+  const [knowledgeSourceIds, setKnowledgeSourceIds] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [publishSlug, setPublishSlug] = useState('support-app');
@@ -41,6 +47,29 @@ export default function AgentDetailPage() {
           rawInstructions: raw,
           instructions: { purpose },
           starterPrompts: ['What can you help me with?'],
+          toolPermissions: toolPermissions
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+          runtimeLimits: {
+            timeoutSeconds: 300,
+            maxToolCalls: Number(maxToolCalls) || 50,
+          },
+          budgets: {
+            maxTokens: maxTokens ? Number(maxTokens) : undefined,
+          },
+          skillIds: skillIds
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+          mcpServerIds: mcpServerIds
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+          knowledgeSourceIds: knowledgeSourceIds
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
         },
       });
       setMessage('Draft saved');
@@ -113,6 +142,33 @@ export default function AgentDetailPage() {
               <option value="local">local (development only)</option>
               <option value="claude">claude (Managed Agents)</option>
             </select>
+          </label>
+          <label>
+            Tool allowlist (comma-separated; empty = allow all)
+            <input value={toolPermissions} onChange={(e) => setToolPermissions(e.target.value)} />
+          </label>
+          <label>
+            Max tool calls
+            <input value={maxToolCalls} onChange={(e) => setMaxToolCalls(e.target.value)} />
+          </label>
+          <label>
+            Session token budget
+            <input value={maxTokens} onChange={(e) => setMaxTokens(e.target.value)} />
+          </label>
+          <label>
+            Skill ids (comma-separated)
+            <input value={skillIds} onChange={(e) => setSkillIds(e.target.value)} />
+          </label>
+          <label>
+            MCP server ids (comma-separated)
+            <input value={mcpServerIds} onChange={(e) => setMcpServerIds(e.target.value)} />
+          </label>
+          <label>
+            Knowledge source ids (comma-separated)
+            <input
+              value={knowledgeSourceIds}
+              onChange={(e) => setKnowledgeSourceIds(e.target.value)}
+            />
           </label>
           <div className="row">
             <Button onClick={saveDraft}>Save draft</Button>

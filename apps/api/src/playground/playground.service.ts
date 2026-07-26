@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import {
   agentDeployments,
@@ -12,6 +13,7 @@ import {
   usageRecords,
 } from '@agent-studio/database';
 import {
+  appendGovernanceContext,
   composeInstructions,
   type AgentVersionConfig,
 } from '@agent-studio/domain';
@@ -21,6 +23,7 @@ import type { RequestContext } from '../auth/auth.types.js';
 import { AuditService } from '../core/audit.service.js';
 import { DB, RUNTIME_REGISTRY, type Db, type Registry } from '../core/tokens.js';
 import { GatewayService } from '../gateway/gateway.service.js';
+import { GovernanceService } from '../governance/governance.service.js';
 
 @Injectable()
 export class PlaygroundService {
@@ -30,6 +33,8 @@ export class PlaygroundService {
     @Inject(AgentsService) private readonly agents: AgentsService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(GatewayService) private readonly gateway: GatewayService,
+    @Inject(forwardRef(() => GovernanceService))
+    private readonly governance: GovernanceService,
   ) {}
 
   async start(
@@ -52,11 +57,12 @@ export class PlaygroundService {
     const version = await this.agents.getVersion(ctx.organizationId, versionId);
     const config = version.config;
     const adapter = this.registry.get(config.runtimeProvider);
+    const instructions = await this.composeVersionInstructions(ctx.organizationId, config);
 
     const validation = await adapter.validateConfiguration({
       name: agent.name,
       model: config.model,
-      instructions: composeInstructions(config),
+      instructions,
     });
     if (!validation.ok) {
       throw new BadRequestException({
@@ -70,6 +76,7 @@ export class PlaygroundService {
       agent.id,
       version.id,
       config,
+      instructions,
     );
 
     if (!deployment.providerAgentId || !deployment.providerEnvironmentId) {
@@ -87,6 +94,8 @@ export class PlaygroundService {
         source: 'playground',
         agentId: agent.id,
         versionId: version.id,
+        toolPermissions: config.toolPermissions,
+        maxToolCalls: config.runtimeLimits.maxToolCalls,
       },
     });
 
@@ -184,11 +193,31 @@ export class PlaygroundService {
     return this.gateway.cancel(ctx, sessionId);
   }
 
+  private async composeVersionInstructions(
+    organizationId: string,
+    config: AgentVersionConfig,
+  ) {
+    const attachments = await this.governance.resolveAttachments(organizationId, {
+      skillIds: config.skillIds,
+      mcpServerIds: config.mcpServerIds,
+      knowledgeSourceIds: config.knowledgeSourceIds,
+    });
+    return appendGovernanceContext(composeInstructions(config), {
+      skills: attachments.skills,
+      knowledgeSources: attachments.knowledgeSources,
+      mcpServers: attachments.mcpServers.map((m) => ({
+        name: m.name,
+        endpointUrl: m.endpointUrl,
+      })),
+    });
+  }
+
   private async resolvePlaygroundDeployment(
     ctx: RequestContext,
     agentId: string,
     versionId: string,
     config: AgentVersionConfig,
+    instructions: string,
   ) {
     const [existing] = await this.db
       .select()
@@ -215,7 +244,7 @@ export class PlaygroundService {
       configuration: {
         name: `${agent.name} (playground)`,
         model: config.model,
-        instructions: composeInstructions(config),
+        instructions,
       },
     });
 

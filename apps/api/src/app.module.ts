@@ -7,6 +7,7 @@ import { CoreModule } from './core/core.module.js';
 import { GatewayModule } from './gateway/gateway.module.js';
 import { HealthController } from './health.controller.js';
 import { OrgsModule } from './orgs/orgs.module.js';
+import { GovernanceModule } from './governance/governance.module.js';
 import { PlaygroundModule } from './playground/playground.module.js';
 
 @Module({
@@ -19,6 +20,7 @@ import { PlaygroundModule } from './playground/playground.module.js';
     ApplicationsModule,
     GatewayModule,
     PlaygroundModule,
+    GovernanceModule,
   ],
   controllers: [HealthController],
 })
