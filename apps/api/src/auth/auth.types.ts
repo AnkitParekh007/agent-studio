@@ -10,4 +10,6 @@ export type RequestContext = {
   user: AuthUser;
   organizationId: string;
   roleKey: RoleKey;
+  authMode?: 'session' | 'publication_token';
+  publicationId?: string;
 };

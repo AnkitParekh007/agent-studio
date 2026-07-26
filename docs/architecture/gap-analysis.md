@@ -1,18 +1,26 @@
-# Gap analysis (Phase 0)
+# Gap analysis
 
-Repository was empty (LICENSE + .gitignore only) on 2026-07-26.
+Living inventory. “Landed” means code exists in-repo; it does **not** imply production certification.
 
-| Capability | Gap | First-slice approach |
+| Capability | Status | Notes |
 | --- | --- | --- |
-| Monorepo tooling | Missing | pnpm + Turborepo + CI |
-| Auth | Missing | Better Auth email/password |
-| Tenancy/RBAC | Missing | Orgs, memberships, roles |
-| Agent versions | Missing | Immutable versions + transitions |
-| Approvals | Missing | Request/decision + diffs |
-| Runtime | Missing | Local + Claude adapters |
-| Gateway | Missing | NestJS SSE gateway |
-| Publishing | Missing | Hosted Next.js runtime |
-| Desktop | Tauri 2 shell landed (Phase 6); signing/auto-update still deferred | Partial |
-| Skills/MCP/Knowledge/Evals/Budgets | Phase 7 catalogs + gateway enforcement | Completed (first pass) |
-| Observability | Missing | Audit + usage tables |
-| Secrets | Missing | Encrypted store + references |
+| Monorepo tooling | Landed | pnpm + Turborepo + CI |
+| Auth | Landed | Better Auth email/password; hosted apps may use publication tokens |
+| Tenancy/RBAC | Landed | Orgs, memberships, roles, invite/role APIs |
+| Agent versions | Landed | Immutable versions + transitions |
+| Approvals | Landed | Request/decision + SoD (no self-approve by default) |
+| Runtime | Landed | Local + Claude adapters |
+| Gateway | Landed | SSE with allowlisted CORS, rate limits, concurrency, org spend, timeouts |
+| Publishing | Landed | Hosted runtime + unpublish/rollback + publication tokens |
+| Desktop | Partial | Tauri 2 shell; code signing / auto-update deferred |
+| Skills/MCP/Knowledge | Partial | Org **catalogs** + version attachments; MCP/knowledge are **not** live connected runtimes |
+| Evals / budgets / tool allowlists | Landed (first pass) | Gateway enforces tool + per-agent budgets |
+| Secrets | Landed | AES-256-GCM store + `/api/secrets`; resolve stays server-side |
+| Audit read | Landed | `GET /api/audit-events` |
+| Observability | Partial | Correlation id header, JSON logs, Prometheus text `/metrics` — no full OTel yet |
+
+## Honest limits
+
+- MCP server rows store endpoint metadata and optional `secretReferenceId`; the gateway does **not** open MCP transports yet.
+- Knowledge sources are catalog entries used for governance/prompt context, not a retrieval pipeline.
+- Desktop shipping (signing, updaters, store packaging) is documented as deferred in `docs/operations/desktop-releases.md`.

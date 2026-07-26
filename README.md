@@ -20,10 +20,10 @@ pnpm dev
 - Hosted agent apps: http://localhost:3001
 - API + Agent Gateway: http://localhost:4000
 
-Default seed user (development only):
+Default seed users (development only):
 
-- Email: `owner@example.com`
-- Password: `Password123!`
+- Owner: `owner@example.com` / `Password123!`
+- Approver: `approver@example.com` / `Password123!` (used for separation-of-duties approvals)
 
 ## Workspace
 

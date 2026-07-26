@@ -23,6 +23,7 @@
     "smoke:application-studio": "node scripts/smoke-application-studio.mjs",
     "smoke:desktop": "node scripts/smoke-desktop-shell.mjs",
     "smoke:governance": "node scripts/smoke-phase7-governance.mjs",
+    "smoke:enterprise": "node scripts/smoke-enterprise-hardening.mjs",
     "desktop:dev": "pnpm --filter @agent-studio/desktop-shell tauri:dev",
     "desktop:build": "pnpm --filter @agent-studio/desktop-shell tauri:build"
   },

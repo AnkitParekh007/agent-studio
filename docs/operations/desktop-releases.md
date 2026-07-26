@@ -47,6 +47,12 @@ pnpm smoke:desktop
 
 Exercises the same auth → public app → gateway stream path the shell uses (API-level; does not launch Tauri).
 
-## Shipping later
+## Shipping (deferred)
 
-Do not generate a unique source repository per agent. Document code signing and auto-update when packaging is enabled (`bundle.active` is currently `false` for the vertical slice).
+Not enterprise-shipped yet:
+
+- Code signing (Windows Authenticode / Apple notarization)
+- Auto-update channels
+- Store / MSI packaging (`bundle.active` is currently `false`)
+
+Do not generate a unique source repository per agent. Prefer a single shell that loads publication-scoped apps via the Agent Gateway (session cookie or publication token).
