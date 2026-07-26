@@ -23,6 +23,8 @@ export const PERMISSIONS = [
   'application:publish',
   'session:start',
   'audit:read',
+  'governance:manage',
+  'eval:run',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -41,6 +43,8 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     'application:publish',
     'session:start',
     'audit:read',
+    'governance:manage',
+    'eval:run',
   ],
   org_admin: [
     'org:read',
@@ -54,8 +58,18 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     'application:publish',
     'session:start',
     'audit:read',
+    'governance:manage',
+    'eval:run',
   ],
-  agent_creator: ['org:read', 'agent:read', 'agent:write', 'agent:submit', 'session:start'],
+  agent_creator: [
+    'org:read',
+    'agent:read',
+    'agent:write',
+    'agent:submit',
+    'session:start',
+    'governance:manage',
+    'eval:run',
+  ],
   agent_approver: ['org:read', 'agent:read', 'agent:approve', 'audit:read'],
   agent_operator: [
     'org:read',
@@ -64,6 +78,8 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     'agent:deploy',
     'application:publish',
     'session:start',
+    'governance:manage',
+    'eval:run',
   ],
   end_user: ['session:start'],
   auditor: ['org:read', 'agent:read', 'audit:read'],

@@ -9,6 +9,6 @@
 | 4 | Full playground UX | Completed (control-plane playground + streaming timeline) |
 | 5 | Application Studio templates + polish | Completed (templates, studio UI, branded runtime) |
 | 6 | Tauri desktop shell | Completed (Tauri shell + keychain session + gateway chat) |
-| 7 | Skills, MCP, knowledge, evals, budgets | Planned |
+| 7 | Skills, MCP, knowledge, evals, budgets | Completed (catalogs + gateway enforcement + evals) |
 
 First vertical slice (create → approve → provision → publish → stream) is the gating milestone before expanding surface area.

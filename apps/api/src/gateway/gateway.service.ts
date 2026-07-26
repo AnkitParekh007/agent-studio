@@ -12,7 +12,13 @@ import {
   runtimeSessions,
   usageRecords,
 } from '@agent-studio/database';
-import { redactUnknown } from '@agent-studio/domain';
+import {
+  checkBudgets,
+  checkToolPermission,
+  redactUnknown,
+  sumUsage,
+  type AgentVersionConfig,
+} from '@agent-studio/domain';
 import type { AgentRuntimeEvent } from '@agent-studio/runtime-core';
 import { and, eq } from 'drizzle-orm';
 import type { FastifyReply } from 'fastify';
@@ -63,6 +69,7 @@ export class GatewayService {
     }
 
     const version = await this.agents.getVersion(ctx.organizationId, publication.versionId);
+
     const adapter = this.registry.get(deployment.runtimeProvider as 'local' | 'claude');
     const correlationId = newId('corr');
 
@@ -71,7 +78,12 @@ export class GatewayService {
       providerAgentId: deployment.providerAgentId,
       providerEnvironmentId: deployment.providerEnvironmentId,
       initialMessage: input.message,
-      metadata: { correlationId, publicationId: publication.id },
+      metadata: {
+        correlationId,
+        publicationId: publication.id,
+        toolPermissions: version.config.toolPermissions,
+        maxToolCalls: version.config.runtimeLimits.maxToolCalls,
+      },
     });
 
     const sessionId = newId('rsess');
@@ -135,10 +147,6 @@ export class GatewayService {
   }
 
   async stream(ctx: RequestContext, sessionId: string, reply: FastifyReply) {
-    const session = await this.getSession(ctx.organizationId, sessionId);
-    if (!session.providerSessionId) throw new BadRequestException('Session missing provider id');
-    const adapter = this.registry.get(session.runtimeProvider as 'local' | 'claude');
-
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
@@ -147,10 +155,7 @@ export class GatewayService {
     });
 
     try {
-      for await (const event of adapter.streamSessionEvents({
-        providerSessionId: session.providerSessionId,
-      })) {
-        await this.persistEvent(ctx.organizationId, sessionId, event);
+      for await (const event of this.iterateSessionEvents(ctx, sessionId)) {
         reply.raw.write(`event: ${event.type}\n`);
         reply.raw.write(`data: ${JSON.stringify(redactUnknown(event))}\n\n`);
         if (event.type === 'session.ended' || event.type === 'error') break;
@@ -162,6 +167,128 @@ export class GatewayService {
     } finally {
       reply.raw.end();
     }
+  }
+
+  async drainStream(ctx: RequestContext, sessionId: string): Promise<AgentRuntimeEvent[]> {
+    const events: AgentRuntimeEvent[] = [];
+    for await (const event of this.iterateSessionEvents(ctx, sessionId)) {
+      events.push(event);
+      if (event.type === 'session.ended' || event.type === 'error') break;
+    }
+    return events;
+  }
+
+  private async *iterateSessionEvents(ctx: RequestContext, sessionId: string) {
+    const session = await this.getSession(ctx.organizationId, sessionId);
+    if (!session.providerSessionId) throw new BadRequestException('Session missing provider id');
+    const adapter = this.registry.get(session.runtimeProvider as 'local' | 'claude');
+    const version = await this.agents.getVersion(ctx.organizationId, session.versionId);
+
+    for await (const event of adapter.streamSessionEvents({
+      providerSessionId: session.providerSessionId,
+    })) {
+      const policyEvent = await this.enforceAndPersist(
+        ctx,
+        sessionId,
+        session.providerSessionId,
+        version.config,
+        event,
+      );
+      yield policyEvent;
+      if (policyEvent.type === 'session.ended' || policyEvent.type === 'error') break;
+    }
+  }
+
+  private async enforceAndPersist(
+    ctx: RequestContext,
+    sessionId: string,
+    providerSessionId: string,
+    config: AgentVersionConfig,
+    event: AgentRuntimeEvent,
+  ): Promise<AgentRuntimeEvent> {
+    if (event.type === 'tool.started') {
+      const usage = await this.sessionUsage(ctx.organizationId, sessionId);
+      const toolName = String(event.payload.toolName ?? event.payload.name ?? 'unknown');
+      const toolCheck = checkToolPermission(config, toolName, usage.toolCallCount);
+      if (!toolCheck.ok) {
+        await this.audit.record({
+          organizationId: ctx.organizationId,
+          actorUserId: ctx.user.id,
+          action: 'session.policy_denied',
+          resourceType: 'runtime_session',
+          resourceId: sessionId,
+          metadata: { code: toolCheck.code, reason: toolCheck.reason, toolName },
+        });
+        const denied: AgentRuntimeEvent = {
+          ...event,
+          type: 'error',
+          payload: { message: toolCheck.reason, code: toolCheck.code },
+        };
+        await this.persistEvent(ctx.organizationId, sessionId, denied);
+        await this.forceEnd(ctx.organizationId, sessionId, providerSessionId);
+        return denied;
+      }
+    }
+
+    await this.persistEvent(ctx.organizationId, sessionId, event);
+
+    if (event.type === 'usage') {
+      const usage = await this.sessionUsage(ctx.organizationId, sessionId);
+      const budgetCheck = checkBudgets(config.budgets, usage);
+      if (!budgetCheck.ok) {
+        await this.audit.record({
+          organizationId: ctx.organizationId,
+          actorUserId: ctx.user.id,
+          action: 'session.budget_exceeded',
+          resourceType: 'runtime_session',
+          resourceId: sessionId,
+          metadata: { code: budgetCheck.code, reason: budgetCheck.reason },
+        });
+        const denied: AgentRuntimeEvent = {
+          id: event.id,
+          type: 'error',
+          sequence: event.sequence + 1,
+          timestamp: new Date().toISOString(),
+          payload: { message: budgetCheck.reason, code: budgetCheck.code },
+        };
+        await this.persistEvent(ctx.organizationId, sessionId, denied);
+        await this.forceEnd(ctx.organizationId, sessionId, providerSessionId);
+        return denied;
+      }
+    }
+
+    return event;
+  }
+
+  private async forceEnd(
+    organizationId: string,
+    sessionId: string,
+    providerSessionId: string,
+  ) {
+    const session = await this.getSession(organizationId, sessionId);
+    const adapter = this.registry.get(session.runtimeProvider as 'local' | 'claude');
+    await adapter.cancelSession(providerSessionId).catch(() => undefined);
+    await this.db
+      .update(runtimeSessions)
+      .set({ status: 'ended', endedAt: new Date(), updatedAt: new Date() })
+      .where(eq(runtimeSessions.id, sessionId));
+  }
+
+  private async sessionUsage(organizationId: string, sessionId: string) {
+    const rows = await this.db
+      .select()
+      .from(usageRecords)
+      .where(
+        and(eq(usageRecords.organizationId, organizationId), eq(usageRecords.sessionId, sessionId)),
+      );
+    return sumUsage(
+      rows.map((r) => ({
+        inputTokens: r.inputTokens,
+        outputTokens: r.outputTokens,
+        toolCallCount: r.toolCallCount,
+        estimatedCostUsd: Number(r.estimatedCostUsd ?? 0),
+      })),
+    );
   }
 
   private async getSession(organizationId: string, sessionId: string) {

@@ -32,6 +32,9 @@ export const agentVersionConfigSchema = z.object({
   memoryPolicy: z.string().default('none'),
   artifactPolicy: z.string().default('allow'),
   toolPermissions: z.array(z.string()).default([]),
+  skillIds: z.array(z.string()).default([]),
+  mcpServerIds: z.array(z.string()).default([]),
+  knowledgeSourceIds: z.array(z.string()).default([]),
   runtimeLimits: z
     .object({
       timeoutSeconds: z.number().int().positive().default(300),

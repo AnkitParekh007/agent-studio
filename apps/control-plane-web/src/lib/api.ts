@@ -195,6 +195,91 @@ export const client = {
       usage: Array<Record<string, unknown>>;
     }>(`/api/playground/sessions/${sessionId}`, { organizationId });
   },
+  listSkills(organizationId: string) {
+    return api<Array<Record<string, unknown>>>('/api/skills', { organizationId });
+  },
+  createSkill(
+    organizationId: string,
+    body: {
+      key: string;
+      name: string;
+      description?: string;
+      promptFragment?: string;
+      toolNames?: string[];
+    },
+  ) {
+    return api<Record<string, unknown>>('/api/skills', {
+      method: 'POST',
+      organizationId,
+      body: JSON.stringify(body),
+    });
+  },
+  listMcpServers(organizationId: string) {
+    return api<Array<Record<string, unknown>>>('/api/mcp-servers', { organizationId });
+  },
+  createMcpServer(
+    organizationId: string,
+    body: {
+      key: string;
+      name: string;
+      description?: string;
+      endpointUrl: string;
+      transport?: string;
+    },
+  ) {
+    return api<Record<string, unknown>>('/api/mcp-servers', {
+      method: 'POST',
+      organizationId,
+      body: JSON.stringify(body),
+    });
+  },
+  listKnowledgeSources(organizationId: string) {
+    return api<Array<Record<string, unknown>>>('/api/knowledge-sources', { organizationId });
+  },
+  createKnowledgeSource(
+    organizationId: string,
+    body: {
+      key: string;
+      name: string;
+      description?: string;
+      uri: string;
+      sourceType?: string;
+    },
+  ) {
+    return api<Record<string, unknown>>('/api/knowledge-sources', {
+      method: 'POST',
+      organizationId,
+      body: JSON.stringify(body),
+    });
+  },
+  listEvalSuites(organizationId: string) {
+    return api<Array<Record<string, unknown>>>('/api/eval-suites', { organizationId });
+  },
+  createEvalSuite(
+    organizationId: string,
+    body: {
+      agentId: string;
+      name: string;
+      description?: string;
+      cases?: Array<{ name: string; prompt: string; expectContains?: string }>;
+    },
+  ) {
+    return api<Record<string, unknown>>('/api/eval-suites', {
+      method: 'POST',
+      organizationId,
+      body: JSON.stringify(body),
+    });
+  },
+  runEvalSuite(organizationId: string, suiteId: string, versionId?: string) {
+    return api<Record<string, unknown>>(`/api/eval-suites/${suiteId}/run`, {
+      method: 'POST',
+      organizationId,
+      body: JSON.stringify({ versionId }),
+    });
+  },
+  listEvalRuns(organizationId: string) {
+    return api<Array<Record<string, unknown>>>('/api/eval-runs', { organizationId });
+  },
   async streamPlayground(
     organizationId: string,
     sessionId: string,
