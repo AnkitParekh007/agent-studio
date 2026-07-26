@@ -64,5 +64,5 @@ Streaming uses Server-Sent Events (SSE).
 | Runtime | Missing | Local + Claude adapters |
 | Gateway | Missing | Session start + SSE |
 | Hosted apps | Missing | `/{org}/{app}` runtime |
-| Desktop | Missing | Deferred Phase 6 |
+| Desktop | Tauri 2 shell (`apps/desktop-shell`) | Keychain session + gateway chat (Phase 6) |
 | Skills/MCP/Knowledge | Missing | Schema stubs / later phases |

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Agent Studio",
+  "version": "0.0.1",
+  "identifier": "com.agentstudio.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Agent Studio Desktop",
+        "width": 980,
+        "height": 760,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:4000 http://127.0.0.1:4000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": false,
+    "targets": "all",
+    "icon": ["icons/icon.png"]
+  },
+  "plugins": {}
+}

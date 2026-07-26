@@ -1,10 +1,52 @@
 # Desktop releases
 
-Tauri 2 Windows shell is Phase 6. The shell will:
+Tauri 2 Windows shell lives in `apps/desktop-shell`.
 
-- Authenticate against the platform
-- Store tokens securely (OS keychain)
-- Load authorized application definitions at runtime
-- Stream chat through the Agent Gateway
+## What the shell does
 
-Do not generate a unique source repository per agent. Document signing and auto-update when the shell lands.
+- Authenticates against the platform (`POST /api/auth/sign-in/email`)
+- Stores the session cookie in the **OS keychain** (Windows Credential Manager via the `keyring` crate)
+- Loads authorized public application definitions (`GET /api/public/apps/:org/:app`)
+- Streams chat through the Agent Gateway (`/api/gateway/sessions*`)
+- Never receives provider keys, MCP credentials, or admin tokens
+
+Authenticated HTTP from the WebView goes through Rust commands so the session cookie can be attached safely (browsers forbid setting `Cookie` from JS).
+
+## Local development
+
+Prerequisites on Windows:
+
+- Node 20+, pnpm
+- Rust toolchain (`rustup default stable`)
+- **MSVC linker** — Visual Studio 2022 Build Tools with the “Desktop development with C++” workload (`link.exe` on PATH)
+
+Without MSVC, the Vite frontend still builds (`pnpm --filter @agent-studio/desktop-shell build`); native `tauri:dev` / `tauri:build` will fail at link time.
+
+```bash
+# API + worker must already be running
+pnpm --filter @agent-studio/desktop-shell tauri:dev
+# or
+pnpm desktop:dev
+```
+
+Frontend-only (no native keychain; session kept in `sessionStorage`):
+
+```bash
+pnpm --filter @agent-studio/desktop-shell dev
+```
+
+Add desktop origins to `CORS_ORIGINS` / Better Auth trusted origins:
+
+`http://localhost:1420`, `tauri://localhost`, `https://tauri.localhost`
+
+## Smoke
+
+```bash
+pnpm smoke:desktop
+```
+
+Exercises the same auth → public app → gateway stream path the shell uses (API-level; does not launch Tauri).
+
+## Shipping later
+
+Do not generate a unique source repository per agent. Document code signing and auto-update when packaging is enabled (`bundle.active` is currently `false` for the vertical slice).

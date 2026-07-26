@@ -16,4 +16,11 @@ Optional API smokes (API + worker must be running):
 pnpm smoke
 pnpm smoke:playground
 pnpm smoke:application-studio
+pnpm smoke:desktop
+```
+
+Desktop shell (Phase 6) additionally needs a Rust toolchain, then:
+
+```bash
+pnpm desktop:dev
 ```
