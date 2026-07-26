@@ -29,12 +29,13 @@ Default seed user (development only):
 
 | Path | Purpose |
 | --- | --- |
-| `apps/control-plane-web` | Builder, reviews, org settings |
+| `apps/control-plane-web` | Builder, playground, Application Studio, reviews |
 | `apps/agent-web-runtime` | Hosted published applications |
 | `apps/api` | NestJS control plane + Agent Gateway |
 | `apps/worker` | BullMQ provision and background jobs |
 | `packages/domain` | Types, lifecycle/version state machines |
 | `packages/database` | Drizzle schema, migrations, seed |
+| `packages/application-templates` | Studio templates + studioConfig schema |
 | `packages/auth` | Better Auth configuration |
 | `packages/authorization` | Server-side RBAC |
 | `packages/runtime-core` | Adapter interface + event types |
@@ -60,3 +61,4 @@ See [`docs/`](docs/) for product vision, architecture, security, local setup, te
 | `pnpm lint` / `typecheck` / `test` / `build` | Quality gates |
 | `pnpm db:migrate` | Apply SQL migrations |
 | `pnpm db:seed` | Load development seed data (refuses in production) |
+| `pnpm smoke` / `smoke:playground` / `smoke:application-studio` | API smokes (stack must be running) |
