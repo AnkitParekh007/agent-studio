@@ -10,8 +10,8 @@ Status labels mean “vertical slice landed,” not enterprise-complete. See [ga
 | 3 | Runtime adapters + Agent Gateway | Local + Claude; CORS/rate limits/org spend/timeouts |
 | 4 | Full playground UX | Control-plane playground + streaming timeline |
 | 5 | Application Studio templates + polish | Templates, studio UI, branded runtime |
-| 6 | Tauri desktop shell | Shell + keychain session + gateway chat; signing/auto-update deferred |
-| 7 | Skills, MCP, knowledge, evals, budgets | Catalogs + gateway tool/budget enforcement; **MCP/knowledge are not live runtime integrations yet** |
+| 6 | Tauri desktop shell | Shell + keychain + gateway chat + NSIS bundle + updater plugin (prod certs/pubkey still required) |
+| 7 | Skills, MCP, knowledge, evals, budgets | Live knowledge fetch + MCP tools/list + local `mcp:` calls; gateway budgets/tools |
 
 ## Enterprise hardening (post Phase 7)
 

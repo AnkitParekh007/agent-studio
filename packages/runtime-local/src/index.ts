@@ -17,11 +17,18 @@ import {
   type RuntimeConfiguration,
 } from '@agent-studio/runtime-core';
 
+export type LocalToolCallHandler = (
+  toolName: string,
+  input: Record<string, unknown>,
+  context: { organizationId?: string },
+) => Promise<Record<string, unknown>>;
+
 interface LocalSession {
   providerSessionId: string;
   pendingMessages: string[];
   sequence: number;
   cancelled: boolean;
+  organizationId?: string;
 }
 
 /**
@@ -32,6 +39,7 @@ export class LocalRuntimeAdapter implements AgentRuntimeAdapter {
   readonly name = 'local' as const;
   private readonly deployments = new Map<string, RuntimeDeployment>();
   private readonly sessions = new Map<string, LocalSession>();
+  private toolCallHandler?: LocalToolCallHandler;
 
   constructor(
     private readonly options: {
@@ -39,6 +47,10 @@ export class LocalRuntimeAdapter implements AgentRuntimeAdapter {
       nodeEnv: string;
     },
   ) {}
+
+  setToolCallHandler(handler: LocalToolCallHandler) {
+    this.toolCallHandler = handler;
+  }
 
   private assertAllowed(): void {
     if (this.options.nodeEnv === 'production') {
@@ -91,11 +103,16 @@ export class LocalRuntimeAdapter implements AgentRuntimeAdapter {
   async startSession(input: StartSessionInput): Promise<RuntimeSession> {
     this.assertAllowed();
     const providerSessionId = `local_sess_${randomUUID()}`;
+    const organizationId =
+      typeof input.metadata?.organizationId === 'string'
+        ? input.metadata.organizationId
+        : undefined;
     this.sessions.set(providerSessionId, {
       providerSessionId,
       pendingMessages: input.initialMessage ? [input.initialMessage] : [],
       sequence: 0,
       cancelled: false,
+      organizationId,
     });
     return {
       id: providerSessionId,
@@ -129,6 +146,50 @@ export class LocalRuntimeAdapter implements AgentRuntimeAdapter {
         continue;
       }
 
+      const mcpCall = parseMcpInvocation(next);
+      if (mcpCall && this.toolCallHandler) {
+        const toolName = mcpCall.qualifiedName;
+        yield {
+          id: randomUUID(),
+          type: 'tool.started',
+          sequence: ++session.sequence,
+          timestamp: new Date().toISOString(),
+          payload: { toolName, input: mcpCall.args },
+        };
+        let output: Record<string, unknown>;
+        try {
+          output = await this.toolCallHandler(toolName, mcpCall.args, {
+            organizationId: session.organizationId,
+          });
+        } catch (err) {
+          output = {
+            error: err instanceof Error ? err.message : 'mcp tool failed',
+          };
+        }
+        yield {
+          id: randomUUID(),
+          type: 'tool.completed',
+          sequence: ++session.sequence,
+          timestamp: new Date().toISOString(),
+          payload: { toolName, output },
+        };
+        const reply = `[local-dev] MCP ${toolName}: ${JSON.stringify(output)}`;
+        yield* this.emitText(session, reply);
+        yield* this.emitUsage(session, next, reply, 1);
+        await new Promise((r) => setTimeout(r, 50));
+        if (session.pendingMessages.length === 0) {
+          yield {
+            id: randomUUID(),
+            type: 'session.ended',
+            sequence: ++session.sequence,
+            timestamp: new Date().toISOString(),
+            payload: {},
+          };
+          break;
+        }
+        continue;
+      }
+
       const toolName = 'local.echo';
       yield {
         id: randomUUID(),
@@ -147,39 +208,10 @@ export class LocalRuntimeAdapter implements AgentRuntimeAdapter {
       };
 
       const reply = `[local-dev] Echo: ${next}`;
-      for (const chunk of chunkText(reply, 24)) {
-        yield {
-          id: randomUUID(),
-          type: 'message.delta',
-          sequence: ++session.sequence,
-          timestamp: new Date().toISOString(),
-          payload: { text: chunk },
-        };
-        await new Promise((r) => setTimeout(r, 20));
-      }
-      yield {
-        id: randomUUID(),
-        type: 'message.completed',
-        sequence: ++session.sequence,
-        timestamp: new Date().toISOString(),
-        payload: { text: reply },
-      };
-      yield {
-        id: randomUUID(),
-        type: 'usage',
-        sequence: ++session.sequence,
-        timestamp: new Date().toISOString(),
-        payload: {
-          inputTokens: next.length,
-          outputTokens: reply.length,
-          toolCallCount: 1,
-          estimatedCostUsd: 0,
-        },
-      };
-      // After one turn in stream consumers that close, break when idle briefly
+      yield* this.emitText(session, reply);
+      yield* this.emitUsage(session, next, reply, 1);
       await new Promise((r) => setTimeout(r, 50));
       if (session.pendingMessages.length === 0) {
-        // keep stream open briefly then end for gateway simplicity on first message
         yield {
           id: randomUUID(),
           type: 'session.ended',
@@ -190,6 +222,46 @@ export class LocalRuntimeAdapter implements AgentRuntimeAdapter {
         break;
       }
     }
+  }
+
+  private async *emitText(session: LocalSession, reply: string) {
+    for (const chunk of chunkText(reply, 24)) {
+      yield {
+        id: randomUUID(),
+        type: 'message.delta' as const,
+        sequence: ++session.sequence,
+        timestamp: new Date().toISOString(),
+        payload: { text: chunk },
+      };
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    yield {
+      id: randomUUID(),
+      type: 'message.completed' as const,
+      sequence: ++session.sequence,
+      timestamp: new Date().toISOString(),
+      payload: { text: reply },
+    };
+  }
+
+  private async *emitUsage(
+    session: LocalSession,
+    inputText: string,
+    reply: string,
+    toolCallCount: number,
+  ) {
+    yield {
+      id: randomUUID(),
+      type: 'usage' as const,
+      sequence: ++session.sequence,
+      timestamp: new Date().toISOString(),
+      payload: {
+        inputTokens: inputText.length,
+        outputTokens: reply.length,
+        toolCallCount,
+        estimatedCostUsd: 0,
+      },
+    };
   }
 
   async submitSessionInput(input: SubmitSessionInput): Promise<void> {
@@ -220,6 +292,26 @@ export class LocalRuntimeAdapter implements AgentRuntimeAdapter {
     this.assertAllowed();
     this.deployments.delete(deploymentId);
   }
+}
+
+function parseMcpInvocation(text: string): {
+  qualifiedName: string;
+  args: Record<string, unknown>;
+} | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('mcp:')) return null;
+  const space = trimmed.indexOf(' ');
+  const qualifiedName = space === -1 ? trimmed : trimmed.slice(0, space);
+  const rest = space === -1 ? '' : trimmed.slice(space + 1).trim();
+  let args: Record<string, unknown> = {};
+  if (rest) {
+    try {
+      args = JSON.parse(rest) as Record<string, unknown>;
+    } catch {
+      args = { input: rest };
+    }
+  }
+  return { qualifiedName, args };
 }
 
 function chunkText(text: string, size: number): string[] {

@@ -7,13 +7,16 @@ import {
   knowledgeSources,
   mcpServers,
   newId,
+  secretValues,
   skills,
 } from '@agent-studio/database';
 import {
   appendGovernanceContext,
   composeInstructions,
+  decryptSecret,
   type AgentVersionConfig,
 } from '@agent-studio/domain';
+import { fetchKnowledgeSources, mcpListTools } from '@agent-studio/integrations';
 import { RuntimeProviderRegistry } from '@agent-studio/runtime-core';
 import { tryCreateClaudeAdapter } from '@agent-studio/runtime-claude';
 import { LocalRuntimeAdapter } from '@agent-studio/runtime-local';
@@ -99,6 +102,44 @@ async function main() {
               )
           : [];
 
+        const retrievedKnowledge = await fetchKnowledgeSources(
+          knowledgeRows.map((k) => ({ name: k.name, uri: k.uri })),
+        );
+
+        const mcpTools: Array<{ serverName: string; name: string; description?: string }> = [];
+        for (const server of mcpRows) {
+          try {
+            let authToken: string | undefined;
+            if (server.secretReferenceId) {
+              const [secret] = await db
+                .select()
+                .from(secretValues)
+                .where(eq(secretValues.secretReferenceId, server.secretReferenceId))
+                .limit(1);
+              if (secret) {
+                authToken = decryptSecret(env.SECRETS_MASTER_KEY, {
+                  ciphertext: secret.ciphertext,
+                  iv: secret.iv,
+                  authTag: secret.authTag,
+                });
+              }
+            }
+            const tools = await mcpListTools({
+              endpointUrl: server.endpointUrl,
+              authToken,
+            });
+            for (const tool of tools) {
+              mcpTools.push({
+                serverName: server.key,
+                name: tool.name,
+                description: tool.description,
+              });
+            }
+          } catch {
+            // Keep provisioning resilient when an MCP server is unreachable.
+          }
+        }
+
         const instructions = appendGovernanceContext(composeInstructions(config), {
           skills: skillRows.map((s) => ({ name: s.name, promptFragment: s.promptFragment })),
           knowledgeSources: knowledgeRows.map((k) => ({
@@ -106,7 +147,13 @@ async function main() {
             uri: k.uri,
             description: k.description,
           })),
+          retrievedKnowledge: retrievedKnowledge.map((k) => ({
+            name: k.name,
+            content: k.content,
+            error: k.error,
+          })),
           mcpServers: mcpRows.map((m) => ({ name: m.name, endpointUrl: m.endpointUrl })),
+          mcpTools,
         });
 
         const provisioned = await adapter.provisionDeployment({

@@ -15,7 +15,7 @@ Phases 0–7 delivered a working vertical slice, but docs overstated “Complete
 3. Authenticate hosted runtime via short-lived publication tokens (`pub_…`) in addition to session cookies.
 4. Enforce gateway allowlisted CORS, per-org rate limits, concurrency caps, monthly spend, and session timeouts.
 5. Enforce separation of duties on approvals (`ALLOW_SELF_APPROVAL=false` by default).
-6. Expose audit read + minimal Prometheus metrics; defer full OpenTelemetry.
+6. Expose audit read + Prometheus metrics; add OpenTelemetry traces (OTLP HTTP when configured).
 
 ## Consequences
 

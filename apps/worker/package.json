@@ -15,6 +15,7 @@
     "@agent-studio/config": "workspace:*",
     "@agent-studio/database": "workspace:*",
     "@agent-studio/domain": "workspace:*",
+    "@agent-studio/integrations": "workspace:*",
     "@agent-studio/runtime-claude": "workspace:*",
     "@agent-studio/runtime-core": "workspace:*",
     "@agent-studio/runtime-local": "workspace:*",

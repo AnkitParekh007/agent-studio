@@ -82,7 +82,9 @@ export function appendGovernanceContext(
   input: {
     skills?: Array<{ name: string; promptFragment: string }>;
     knowledgeSources?: Array<{ name: string; uri: string; description?: string }>;
+    retrievedKnowledge?: Array<{ name: string; content: string; error?: string }>;
     mcpServers?: Array<{ name: string; endpointUrl: string }>;
+    mcpTools?: Array<{ serverName: string; name: string; description?: string }>;
   },
 ): string {
   const sections: string[] = [baseInstructions.trim()].filter(Boolean);
@@ -94,7 +96,17 @@ export function appendGovernanceContext(
           .join('\n'),
     );
   }
-  if (input.knowledgeSources?.length) {
+  if (input.retrievedKnowledge?.length) {
+    sections.push(
+      'Retrieved knowledge (server-fetched at provision/session time):\n' +
+        input.retrievedKnowledge
+          .map((k) => {
+            if (k.error) return `### ${k.name}\n(error: ${k.error})`;
+            return `### ${k.name}\n${k.content}`;
+          })
+          .join('\n\n'),
+    );
+  } else if (input.knowledgeSources?.length) {
     sections.push(
       'Knowledge sources (server-resolved references only):\n' +
         input.knowledgeSources
@@ -102,7 +114,17 @@ export function appendGovernanceContext(
           .join('\n'),
     );
   }
-  if (input.mcpServers?.length) {
+  if (input.mcpTools?.length) {
+    sections.push(
+      'Live MCP tools (invoke with message `mcp:<server>.<tool> {json args}` on local runtime):\n' +
+        input.mcpTools
+          .map(
+            (t) =>
+              `- mcp:${t.serverName}.${t.name}${t.description ? ` — ${t.description}` : ''}`,
+          )
+          .join('\n'),
+    );
+  } else if (input.mcpServers?.length) {
     sections.push(
       'MCP servers available server-side (credentials never exposed to clients):\n' +
         input.mcpServers.map((m) => `- ${m.name}: ${m.endpointUrl}`).join('\n'),
