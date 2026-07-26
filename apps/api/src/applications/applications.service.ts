@@ -5,6 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  getApplicationTemplate,
+  listApplicationTemplates,
+  parseStudioConfig,
+  publicStudioConfig,
+  type ApplicationStudioConfig,
+} from '@agent-studio/application-templates';
+import {
   agentDeployments,
   applicationDefinitions,
   newId,
@@ -17,6 +24,27 @@ import type { RequestContext } from '../auth/auth.types.js';
 import { AuditService } from '../core/audit.service.js';
 import { DB, type Db } from '../core/tokens.js';
 
+function toAppRow(row: typeof applicationDefinitions.$inferSelect) {
+  const studioConfig = parseStudioConfig(JSON.parse(row.studioConfigJson || '{}'));
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    agentId: row.agentId,
+    name: row.name,
+    slug: row.slug,
+    description: row.description,
+    logoUrl: row.logoUrl,
+    templateKey: row.templateKey,
+    status: row.status,
+    welcomeMessage: row.welcomeMessage,
+    starterPrompts: JSON.parse(row.starterPromptsJson || '[]') as string[],
+    theme: JSON.parse(row.themeJson || '{}') as Record<string, string>,
+    studioConfig,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
 @Injectable()
 export class ApplicationsService {
   constructor(
@@ -25,11 +53,163 @@ export class ApplicationsService {
     @Inject(AuditService) private readonly audit: AuditService,
   ) {}
 
-  async createAndPublish(
+  listTemplates() {
+    return listApplicationTemplates().map((t) => ({
+      key: t.key,
+      name: t.name,
+      description: t.description,
+      config: t.config,
+    }));
+  }
+
+  async list(organizationId: string) {
+    const rows = await this.db
+      .select()
+      .from(applicationDefinitions)
+      .where(eq(applicationDefinitions.organizationId, organizationId))
+      .orderBy(desc(applicationDefinitions.updatedAt));
+    return rows.map(toAppRow);
+  }
+
+  async get(organizationId: string, applicationId: string) {
+    const [row] = await this.db
+      .select()
+      .from(applicationDefinitions)
+      .where(
+        and(
+          eq(applicationDefinitions.id, applicationId),
+          eq(applicationDefinitions.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+    if (!row) throw new NotFoundException('Application not found');
+
+    const pubs = await this.db
+      .select()
+      .from(publications)
+      .where(eq(publications.applicationId, applicationId))
+      .orderBy(desc(publications.createdAt));
+
+    const [org] = await this.db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1);
+
+    return {
+      ...toAppRow(row),
+      publications: pubs,
+      hostedPath:
+        pubs.find((p) => p.status === 'active' && p.channel === 'hosted_web') && org
+          ? `/${org.slug}/${row.slug}`
+          : null,
+    };
+  }
+
+  async create(
     ctx: RequestContext,
-    input: { agentId: string; name: string; slug: string; description?: string },
+    input: {
+      agentId: string;
+      name: string;
+      slug: string;
+      description?: string;
+      templateKey?: string;
+    },
   ) {
     const agent = await this.agents.get(ctx.organizationId, input.agentId);
+    if (!agent.currentApprovedVersionId) {
+      throw new BadRequestException('Agent must have an approved version before creating an app');
+    }
+
+    const template = getApplicationTemplate(input.templateKey ?? 'general_assistant');
+    if (!template) throw new BadRequestException('Unknown application template');
+
+    const studioConfig = parseStudioConfig(template.config);
+    const appId = newId('app');
+    const now = new Date();
+
+    await this.db.insert(applicationDefinitions).values({
+      id: appId,
+      organizationId: ctx.organizationId,
+      agentId: agent.id,
+      name: input.name,
+      slug: input.slug,
+      description: input.description ?? template.description,
+      logoUrl: studioConfig.logoUrl ?? null,
+      templateKey: template.key,
+      status: 'draft',
+      themeJson: JSON.stringify(studioConfig.theme),
+      welcomeMessage: studioConfig.welcomeMessage,
+      starterPromptsJson: JSON.stringify(studioConfig.starterPrompts),
+      studioConfigJson: JSON.stringify(studioConfig),
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await this.audit.record({
+      organizationId: ctx.organizationId,
+      actorUserId: ctx.user.id,
+      action: 'application.created',
+      resourceType: 'application',
+      resourceId: appId,
+      metadata: { templateKey: template.key, slug: input.slug },
+    });
+
+    return this.get(ctx.organizationId, appId);
+  }
+
+  async update(
+    ctx: RequestContext,
+    applicationId: string,
+    patch: {
+      name?: string;
+      description?: string;
+      studioConfig?: Partial<ApplicationStudioConfig>;
+    },
+  ) {
+    const current = await this.get(ctx.organizationId, applicationId);
+    const nextConfig = parseStudioConfig({
+      ...current.studioConfig,
+      ...patch.studioConfig,
+      theme: {
+        ...current.studioConfig.theme,
+        ...patch.studioConfig?.theme,
+      },
+      featureFlags: {
+        ...current.studioConfig.featureFlags,
+        ...patch.studioConfig?.featureFlags,
+      },
+    });
+
+    await this.db
+      .update(applicationDefinitions)
+      .set({
+        name: patch.name ?? current.name,
+        description: patch.description ?? current.description,
+        logoUrl: nextConfig.logoUrl ?? null,
+        templateKey: nextConfig.templateKey,
+        themeJson: JSON.stringify(nextConfig.theme),
+        welcomeMessage: nextConfig.welcomeMessage,
+        starterPromptsJson: JSON.stringify(nextConfig.starterPrompts),
+        studioConfigJson: JSON.stringify(nextConfig),
+        updatedAt: new Date(),
+      })
+      .where(eq(applicationDefinitions.id, applicationId));
+
+    await this.audit.record({
+      organizationId: ctx.organizationId,
+      actorUserId: ctx.user.id,
+      action: 'application.updated',
+      resourceType: 'application',
+      resourceId: applicationId,
+    });
+
+    return this.get(ctx.organizationId, applicationId);
+  }
+
+  async publish(ctx: RequestContext, applicationId: string) {
+    const app = await this.get(ctx.organizationId, applicationId);
+    const agent = await this.agents.get(ctx.organizationId, app.agentId);
     if (!agent.currentApprovedVersionId) {
       throw new BadRequestException('Agent has no approved version to publish');
     }
@@ -57,29 +237,23 @@ export class ApplicationsService {
       );
     }
 
-    const appId = newId('app');
-    const publicationId = newId('pub');
     const now = new Date();
-    const theme = version.config.applicationConfig.theme;
+    await this.db
+      .update(publications)
+      .set({ status: 'superseded', updatedAt: now })
+      .where(
+        and(
+          eq(publications.applicationId, applicationId),
+          eq(publications.status, 'active'),
+          eq(publications.channel, 'hosted_web'),
+        ),
+      );
 
-    await this.db.insert(applicationDefinitions).values({
-      id: appId,
-      organizationId: ctx.organizationId,
-      agentId: agent.id,
-      name: input.name,
-      slug: input.slug,
-      description: input.description ?? '',
-      themeJson: JSON.stringify(theme),
-      welcomeMessage: version.config.applicationConfig.welcomeMessage,
-      starterPromptsJson: JSON.stringify(version.config.starterPrompts),
-      createdAt: now,
-      updatedAt: now,
-    });
-
+    const publicationId = newId('pub');
     await this.db.insert(publications).values({
       id: publicationId,
       organizationId: ctx.organizationId,
-      applicationId: appId,
+      applicationId,
       agentId: agent.id,
       versionId: version.id,
       deploymentId: deployment.id,
@@ -89,25 +263,37 @@ export class ApplicationsService {
       updatedAt: now,
     });
 
+    await this.db
+      .update(applicationDefinitions)
+      .set({ status: 'published', updatedAt: now })
+      .where(eq(applicationDefinitions.id, applicationId));
+
     await this.audit.record({
       organizationId: ctx.organizationId,
       actorUserId: ctx.user.id,
       action: 'application.published',
       resourceType: 'publication',
       resourceId: publicationId,
-      metadata: { applicationId: appId, slug: input.slug },
+      metadata: { applicationId, slug: app.slug },
     });
 
-    const [org] = await this.db
-      .select()
-      .from(organizations)
-      .where(eq(organizations.id, ctx.organizationId))
-      .limit(1);
+    return this.get(ctx.organizationId, applicationId);
+  }
 
+  /** Backward-compatible one-shot create + publish used by earlier clients. */
+  async createAndPublish(
+    ctx: RequestContext,
+    input: { agentId: string; name: string; slug: string; description?: string },
+  ) {
+    const created = await this.create(ctx, {
+      ...input,
+      templateKey: 'general_assistant',
+    });
+    const published = await this.publish(ctx, created.id);
     return {
-      applicationId: appId,
-      publicationId,
-      path: `/${org?.slug ?? 'org'}/${input.slug}`,
+      applicationId: published.id,
+      publicationId: published.publications[0]?.id,
+      path: published.hostedPath,
     };
   }
 
@@ -145,6 +331,10 @@ export class ApplicationsService {
       .limit(1);
     if (!publication) throw new NotFoundException('Publication not found');
 
+    const studioConfig = publicStudioConfig(
+      parseStudioConfig(JSON.parse(app.studioConfigJson || '{}')),
+    );
+
     return {
       organization: { id: org.id, slug: org.slug, name: org.name },
       application: {
@@ -152,9 +342,11 @@ export class ApplicationsService {
         name: app.name,
         slug: app.slug,
         description: app.description,
-        welcomeMessage: app.welcomeMessage,
-        theme: JSON.parse(app.themeJson) as Record<string, string>,
-        starterPrompts: JSON.parse(app.starterPromptsJson) as string[],
+        logoUrl: app.logoUrl,
+        welcomeMessage: studioConfig.welcomeMessage || app.welcomeMessage,
+        theme: studioConfig.theme,
+        starterPrompts: studioConfig.starterPrompts,
+        studioConfig,
       },
       publication: {
         id: publication.id,

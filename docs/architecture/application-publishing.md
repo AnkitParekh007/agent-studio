@@ -1,14 +1,33 @@
 # Application publishing
 
-Approved agents become application definitions with branding and chat settings, then publications.
+Approved agents become **application definitions** with studio configuration, then **publications** on a channel (hosted web first).
 
-## Hosted web (MVP)
+## Application Studio
+
+Control-plane Application Studio manages the lifecycle:
+
+`draft` → edit branding/features → `published` (active hosted publication)
+
+Templates live in `@agent-studio/application-templates` and seed `studio_config_json` (plus denormalized welcome/theme/starter columns for compatibility).
+
+API surface:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/application-templates` | List templates |
+| GET/POST | `/api/applications` | List / create draft |
+| GET/PATCH | `/api/applications/:id` | Load / update studio config |
+| POST | `/api/applications/:id/publish` | Publish hosted web |
+| POST | `/api/applications/publish` | Legacy one-shot create+publish |
+| GET | `/api/public/apps/:orgSlug/:appSlug` | Public branding + publication id |
+
+## Hosted web
 
 Stable route:
 
 `http://localhost:3001/{organizationSlug}/{applicationSlug}`
 
-The hosted runtime loads **public** application config only (name, theme, welcome message, starter prompts). It never receives provider keys, MCP credentials, or admin tokens.
+The hosted runtime loads **public** application config only (name, theme, welcome message, starter prompts, feature flags, footer links). It never receives provider keys, MCP credentials, or admin tokens.
 
 All chat traffic goes through the Agent Gateway with short-lived session authorization.
 

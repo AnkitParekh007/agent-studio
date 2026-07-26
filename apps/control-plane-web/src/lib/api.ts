@@ -99,6 +99,58 @@ export const client = {
       body: JSON.stringify(body),
     });
   },
+  listApplicationTemplates(organizationId: string) {
+    return api<
+      Array<{
+        key: string;
+        name: string;
+        description: string;
+        config: Record<string, unknown>;
+      }>
+    >('/api/application-templates', { organizationId });
+  },
+  listApplications(organizationId: string) {
+    return api<Array<Record<string, unknown>>>('/api/applications', { organizationId });
+  },
+  getApplication(organizationId: string, applicationId: string) {
+    return api<Record<string, unknown>>(`/api/applications/${applicationId}`, {
+      organizationId,
+    });
+  },
+  createApplication(
+    organizationId: string,
+    body: {
+      agentId: string;
+      name: string;
+      slug: string;
+      description?: string;
+      templateKey?: string;
+    },
+  ) {
+    return api<Record<string, unknown>>('/api/applications', {
+      method: 'POST',
+      organizationId,
+      body: JSON.stringify(body),
+    });
+  },
+  updateApplication(
+    organizationId: string,
+    applicationId: string,
+    body: Record<string, unknown>,
+  ) {
+    return api<Record<string, unknown>>(`/api/applications/${applicationId}`, {
+      method: 'PATCH',
+      organizationId,
+      body: JSON.stringify(body),
+    });
+  },
+  publishApplication(organizationId: string, applicationId: string) {
+    return api<Record<string, unknown>>(`/api/applications/${applicationId}/publish`, {
+      method: 'POST',
+      organizationId,
+      body: '{}',
+    });
+  },
   listVersions(organizationId: string, agentId: string) {
     return api<Array<Record<string, unknown>>>(`/api/agents/${agentId}/versions`, {
       organizationId,

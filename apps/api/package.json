@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@agent-studio/application-templates": "workspace:*",
     "@agent-studio/auth": "workspace:*",
     "@agent-studio/authorization": "workspace:*",
     "@agent-studio/config": "workspace:*",

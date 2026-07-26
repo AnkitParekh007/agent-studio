@@ -10,8 +10,10 @@
 
 Seed credentials are printed by the seed command and documented in the root README.
 
-Optional API smoke of the first vertical slice (API + worker must be running):
+Optional API smokes (API + worker must be running):
 
 ```bash
-node scripts/smoke-vertical-slice.mjs
+pnpm smoke
+pnpm smoke:playground
+pnpm smoke:application-studio
 ```

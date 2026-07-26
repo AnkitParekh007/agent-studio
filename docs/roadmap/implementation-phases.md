@@ -7,7 +7,7 @@
 | 2 | Agent CRUD, versions, approval | Completed (MVP slice) |
 | 3 | Runtime adapters + Agent Gateway | Completed (local + Claude adapter; smoke verified local) |
 | 4 | Full playground UX | Completed (control-plane playground + streaming timeline) |
-| 5 | Application Studio templates + polish | Partial (hosted publish in slice) |
+| 5 | Application Studio templates + polish | Completed (templates, studio UI, branded runtime) |
 | 6 | Tauri desktop shell | Planned |
 | 7 | Skills, MCP, knowledge, evals, budgets | Planned |
 
