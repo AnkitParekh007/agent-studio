@@ -1,0 +1,30 @@
+{
+  "name": "@agent-studio/worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch --env-file=../../.env src/main.ts",
+    "start": "node --env-file=../../.env dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@agent-studio/config": "workspace:*",
+    "@agent-studio/database": "workspace:*",
+    "@agent-studio/domain": "workspace:*",
+    "@agent-studio/runtime-claude": "workspace:*",
+    "@agent-studio/runtime-core": "workspace:*",
+    "@agent-studio/runtime-local": "workspace:*",
+    "bullmq": "^5.41.0",
+    "drizzle-orm": "^0.45.2",
+    "ioredis": "^5.5.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}
