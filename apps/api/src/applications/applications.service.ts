@@ -19,12 +19,17 @@ import {
   publicationTokens,
   publications,
 } from '@agent-studio/database';
-import { generatePublicationToken, hashToken } from '@agent-studio/domain';
+import {
+  generatePublicationToken,
+  hashToken,
+  isPublicationChannel,
+  type PublicationChannel,
+} from '@agent-studio/domain';
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { AgentsService } from '../agents/agents.service.js';
 import type { RequestContext } from '../auth/auth.types.js';
 import { AuditService } from '../core/audit.service.js';
-import { DB, type Db } from '../core/tokens.js';
+import { DB, ENV, type Db, type Env } from '../core/tokens.js';
 
 function toAppRow(row: typeof applicationDefinitions.$inferSelect) {
   const studioConfig = parseStudioConfig(JSON.parse(row.studioConfigJson || '{}'));
@@ -51,6 +56,7 @@ function toAppRow(row: typeof applicationDefinitions.$inferSelect) {
 export class ApplicationsService {
   constructor(
     @Inject(DB) private readonly db: Db,
+    @Inject(ENV) private readonly env: Env,
     @Inject(AgentsService) private readonly agents: AgentsService,
     @Inject(AuditService) private readonly audit: AuditService,
   ) {}
@@ -98,9 +104,45 @@ export class ApplicationsService {
       .where(eq(organizations.id, organizationId))
       .limit(1);
 
+    const activeByChannel = (channel: PublicationChannel) =>
+      pubs.find((p) => p.status === 'active' && p.channel === channel);
+
     return {
       ...toAppRow(row),
       publications: pubs,
+      channels: {
+        hosted_web: activeByChannel('hosted_web')
+          ? {
+              publicationId: activeByChannel('hosted_web')!.id,
+              path: org ? `/${org.slug}/${row.slug}` : null,
+              url: org
+                ? `${this.env.AGENT_RUNTIME_ORIGIN}/${org.slug}/${row.slug}`
+                : null,
+            }
+          : null,
+        embed: activeByChannel('embed')
+          ? {
+              publicationId: activeByChannel('embed')!.id,
+              path: org ? `/embed/${org.slug}/${row.slug}` : null,
+              url: org
+                ? `${this.env.EMBED_RUNTIME_ORIGIN}/embed/${org.slug}/${row.slug}`
+                : null,
+            }
+          : null,
+        api: activeByChannel('api')
+          ? {
+              publicationId: activeByChannel('api')!.id,
+              docsPath: '/api/v1',
+              sessionPath: '/api/v1/sessions',
+            }
+          : null,
+        desktop: activeByChannel('desktop')
+          ? {
+              publicationId: activeByChannel('desktop')!.id,
+              notes: 'Use desktop shell with org/app slug or publication token',
+            }
+          : null,
+      },
       hostedPath:
         pubs.find((p) => p.status === 'active' && p.channel === 'hosted_web') && org
           ? `/${org.slug}/${row.slug}`
@@ -209,7 +251,15 @@ export class ApplicationsService {
     return this.get(ctx.organizationId, applicationId);
   }
 
-  async publish(ctx: RequestContext, applicationId: string) {
+  async publish(
+    ctx: RequestContext,
+    applicationId: string,
+    channelInput: string = 'hosted_web',
+  ) {
+    if (!isPublicationChannel(channelInput)) {
+      throw new BadRequestException(`Invalid publication channel: ${channelInput}`);
+    }
+    const channel = channelInput;
     const app = await this.get(ctx.organizationId, applicationId);
     const agent = await this.agents.get(ctx.organizationId, app.agentId);
     if (!agent.currentApprovedVersionId) {
@@ -247,7 +297,7 @@ export class ApplicationsService {
         and(
           eq(publications.applicationId, applicationId),
           eq(publications.status, 'active'),
-          eq(publications.channel, 'hosted_web'),
+          eq(publications.channel, channel),
         ),
       );
 
@@ -259,7 +309,7 @@ export class ApplicationsService {
       agentId: agent.id,
       versionId: version.id,
       deploymentId: deployment.id,
-      channel: 'hosted_web',
+      channel,
       status: 'active',
       createdAt: now,
       updatedAt: now,
@@ -276,13 +326,21 @@ export class ApplicationsService {
       action: 'application.published',
       resourceType: 'publication',
       resourceId: publicationId,
-      metadata: { applicationId, slug: app.slug },
+      metadata: { applicationId, slug: app.slug, channel },
     });
 
     return this.get(ctx.organizationId, applicationId);
   }
 
-  async unpublish(ctx: RequestContext, applicationId: string) {
+  async unpublish(
+    ctx: RequestContext,
+    applicationId: string,
+    channelInput: string = 'hosted_web',
+  ) {
+    if (!isPublicationChannel(channelInput)) {
+      throw new BadRequestException(`Invalid publication channel: ${channelInput}`);
+    }
+    const channel = channelInput;
     const app = await this.get(ctx.organizationId, applicationId);
     const now = new Date();
     await this.db
@@ -292,13 +350,22 @@ export class ApplicationsService {
         and(
           eq(publications.applicationId, applicationId),
           eq(publications.status, 'active'),
-          eq(publications.channel, 'hosted_web'),
+          eq(publications.channel, channel),
         ),
       );
-    await this.db
-      .update(applicationDefinitions)
-      .set({ status: 'draft', updatedAt: now })
-      .where(eq(applicationDefinitions.id, applicationId));
+
+    const remainingActive = await this.db
+      .select()
+      .from(publications)
+      .where(
+        and(eq(publications.applicationId, applicationId), eq(publications.status, 'active')),
+      );
+    if (remainingActive.length === 0) {
+      await this.db
+        .update(applicationDefinitions)
+        .set({ status: 'draft', updatedAt: now })
+        .where(eq(applicationDefinitions.id, applicationId));
+    }
 
     await this.audit.record({
       organizationId: ctx.organizationId,
@@ -306,17 +373,17 @@ export class ApplicationsService {
       action: 'application.unpublished',
       resourceType: 'application',
       resourceId: applicationId,
-      metadata: { slug: app.slug },
+      metadata: { slug: app.slug, channel },
     });
 
     return this.get(ctx.organizationId, applicationId);
   }
 
-  /** Reactivate a prior hosted_web publication (rollback). */
+  /** Reactivate a prior publication (rollback). */
   async rollback(ctx: RequestContext, applicationId: string, publicationId: string) {
     const app = await this.get(ctx.organizationId, applicationId);
     const target = app.publications.find((p) => p.id === publicationId);
-    if (!target || target.channel !== 'hosted_web') {
+    if (!target) {
       throw new NotFoundException('Publication not found');
     }
     if (!target.deploymentId) {
@@ -340,7 +407,7 @@ export class ApplicationsService {
         and(
           eq(publications.applicationId, applicationId),
           eq(publications.status, 'active'),
-          eq(publications.channel, 'hosted_web'),
+          eq(publications.channel, target.channel),
         ),
       );
 
@@ -352,7 +419,7 @@ export class ApplicationsService {
       agentId: target.agentId,
       versionId: target.versionId,
       deploymentId: target.deploymentId,
-      channel: 'hosted_web',
+      channel: target.channel,
       status: 'active',
       createdAt: now,
       updatedAt: now,
@@ -495,15 +562,24 @@ export class ApplicationsService {
       ...input,
       templateKey: 'general_assistant',
     });
-    const published = await this.publish(ctx, created.id);
+    const published = await this.publish(ctx, created.id, 'hosted_web');
+    const hosted = published.channels.hosted_web;
     return {
       applicationId: published.id,
-      publicationId: published.publications[0]?.id,
+      publicationId: hosted?.publicationId,
       path: published.hostedPath,
     };
   }
 
-  async getPublicApp(orgSlug: string, appSlug: string) {
+  async getPublicApp(
+    orgSlug: string,
+    appSlug: string,
+    channelInput: string = 'hosted_web',
+  ) {
+    if (!isPublicationChannel(channelInput)) {
+      throw new BadRequestException(`Invalid publication channel: ${channelInput}`);
+    }
+    const channel = channelInput;
     const [org] = await this.db
       .select()
       .from(organizations)
@@ -530,7 +606,7 @@ export class ApplicationsService {
         and(
           eq(publications.applicationId, app.id),
           eq(publications.status, 'active'),
-          eq(publications.channel, 'hosted_web'),
+          eq(publications.channel, channel),
         ),
       )
       .orderBy(desc(publications.createdAt))
@@ -558,6 +634,7 @@ export class ApplicationsService {
         id: publication.id,
         agentId: publication.agentId,
         versionId: publication.versionId,
+        channel: publication.channel,
       },
     };
   }

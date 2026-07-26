@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 
 .turbo/
 
+# Local secrets (updater private keys, signing material)
+.secrets/
+

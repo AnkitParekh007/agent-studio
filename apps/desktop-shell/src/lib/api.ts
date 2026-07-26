@@ -161,11 +161,22 @@ export const desktopApi = {
   },
 
   async getPublicApp(orgSlug: string, appSlug: string) {
-    const path = `/api/public/apps/${orgSlug}/${appSlug}`;
-    if (await isTauri()) {
-      return tauriApiRequest<PublicApp>({ method: 'GET', path, skipAuth: true });
+    const tryPaths = [
+      `/api/public/apps/${orgSlug}/${appSlug}?channel=desktop`,
+      `/api/public/apps/${orgSlug}/${appSlug}?channel=hosted_web`,
+    ];
+    let lastError: unknown;
+    for (const path of tryPaths) {
+      try {
+        if (await isTauri()) {
+          return await tauriApiRequest<PublicApp>({ method: 'GET', path, skipAuth: true });
+        }
+        return await browserApi<PublicApp>(path, { skipAuth: true });
+      } catch (err) {
+        lastError = err;
+      }
     }
-    return browserApi<PublicApp>(path, { skipAuth: true });
+    throw lastError instanceof Error ? lastError : new Error('Public app not found');
   },
 
   async startSession(organizationId: string, publicationId: string, message: string) {

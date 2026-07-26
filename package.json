@@ -25,8 +25,10 @@
     "smoke:governance": "node scripts/smoke-phase7-governance.mjs",
     "smoke:enterprise": "node scripts/smoke-enterprise-hardening.mjs",
     "smoke:integrations": "node scripts/smoke-integrations.mjs",
+    "smoke:publish-channels": "node scripts/smoke-publish-channels.mjs",
     "desktop:dev": "pnpm --filter @agent-studio/desktop-shell tauri:dev",
-    "desktop:build": "pnpm --filter @agent-studio/desktop-shell tauri:build"
+    "desktop:build": "pnpm --filter @agent-studio/desktop-shell tauri:build",
+    "desktop:gen-updater-keys": "node scripts/generate-desktop-updater-keys.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

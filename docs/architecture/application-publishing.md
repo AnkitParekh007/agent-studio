@@ -1,51 +1,60 @@
 # Application publishing
 
-Approved agents become **application definitions** with studio configuration, then **publications** on a channel (hosted web first).
+Agent Studio publishes **per channel**. One application can be live on hosted web, embed, API, and desktop at the same time.
 
-## Application Studio
+## Channels
 
-Control-plane Application Studio manages the lifecycle:
-
-`draft` → edit branding/features → `published` (active hosted publication)
-
-Templates live in `@agent-studio/application-templates` and seed `studio_config_json` (plus denormalized welcome/theme/starter columns for compatibility).
-
-API surface:
-
-| Method | Path | Purpose |
+| Channel | Consumer | Auth |
 | --- | --- | --- |
-| GET | `/api/application-templates` | List templates |
-| GET/POST | `/api/applications` | List / create draft |
-| GET/PATCH | `/api/applications/:id` | Load / update studio config |
-| POST | `/api/applications/:id/publish` | Publish hosted web |
-| POST | `/api/applications/publish` | Legacy one-shot create+publish |
-| GET | `/api/public/apps/:orgSlug/:appSlug` | Public branding + publication id |
+| `hosted_web` | `apps/agent-web-runtime` (`:3001`) | Session cookie or `pub_` token |
+| `embed` | `apps/embed-runtime` (`:3002`) + `@agent-studio/embed-sdk` | Prefer `pub_` token (`?token=`) |
+| `api` | Any HTTP client via `/api/v1` | `pub_` token or session |
+| `desktop` | `apps/desktop-shell` | Session (keychain) or token |
 
-## Hosted web
+## Control-plane flow
 
-Stable route:
+1. Approve + provision an agent version.
+2. Create/edit an application in Application Studio.
+3. Publish each desired channel (`POST /api/applications/:id/publish` with `{ "channel": "embed" }`).
+4. Mint a publication token for embed/API end users.
+5. Unpublish a single channel without tearing down the others.
 
-`http://localhost:3001/{organizationSlug}/{applicationSlug}`
+## Public config
 
-The hosted runtime loads **public** application config only (name, theme, welcome message, starter prompts, feature flags, footer links). It never receives provider keys, MCP credentials, or admin tokens.
+`GET /api/public/apps/:orgSlug/:appSlug?channel=embed`
 
-### End-user auth for hosted chat
+Returns branding + `publication.id` only — never secrets.
 
-Gateway calls accept either:
+## Public API (v1)
 
-1. A Better Auth session cookie for an org member, or
-2. A publication token (`x-publication-token: pub_…` or `Authorization: Bearer pub_…`) minted via `POST /api/publications/:publicationId/tokens`.
+See `GET /api/v1` for the live contract. Core calls:
 
-The hosted app reads `?token=pub_…` (stored in `sessionStorage`) and sends it on gateway requests. Tokens are hashed at rest and can be revoked.
+- `POST /api/v1/sessions` `{ publicationId, message? }`
+- `POST /api/v1/sessions/:id/stream` (SSE)
 
-All chat traffic goes through the Agent Gateway with short-lived session authorization.
+Headers: `x-organization-id` + `x-publication-token: pub_…`
 
-## Later surfaces
+## Embed SDK
 
-- Embedded copilot SDK with short-lived tokens
-- Tauri 2 desktop shell loading authorized app definitions
-- Versioned public API/SDK
+```ts
+import { AgentStudioEmbedClient, createEmbedIframe } from '@agent-studio/embed-sdk';
 
-## Custom domains
+const client = new AgentStudioEmbedClient({
+  apiBaseUrl: 'https://api.example.com',
+  organizationId: 'org_…',
+  publicationToken: 'pub_…',
+});
+await client.chat(publicationId, 'Hello');
+```
 
-Designed for later; MVP uses platform hostname + org/app slugs.
+Or mount an iframe to the embed runtime:
+
+```ts
+const iframe = createEmbedIframe({
+  embedRuntimeOrigin: 'https://embed.example.com',
+  orgSlug: 'acme',
+  appSlug: 'support',
+  publicationToken: 'pub_…',
+});
+document.body.appendChild(iframe);
+```

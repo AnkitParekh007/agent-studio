@@ -44,6 +44,8 @@ export default function ApplicationDetailPage() {
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('draft');
   const [hostedPath, setHostedPath] = useState<string | null>(null);
+  const [channels, setChannels] = useState<Record<string, { publicationId?: string; url?: string | null; path?: string | null } | null>>({});
+  const [mintedToken, setMintedToken] = useState<string | null>(null);
   const [config, setConfig] = useState<StudioConfig | null>(null);
   const [starterText, setStarterText] = useState('');
   const [message, setMessage] = useState<string | null>(null);
@@ -56,6 +58,7 @@ export default function ApplicationDetailPage() {
     setDescription(String(app.description ?? ''));
     setStatus(String(app.status ?? 'draft'));
     setHostedPath((app.hostedPath as string | null) ?? null);
+    setChannels((app.channels as typeof channels) ?? {});
     const studio = app.studioConfig as StudioConfig;
     setConfig(studio);
     setStarterText((studio.starterPrompts ?? []).join('\n'));
@@ -91,15 +94,36 @@ export default function ApplicationDetailPage() {
     }
   }
 
-  async function publish() {
+  async function publish(channel: 'hosted_web' | 'embed' | 'api' | 'desktop') {
     setError(null);
+    setMintedToken(null);
     try {
-      const published = await client.publishApplication(orgId(), applicationId);
-      setMessage('Published hosted application');
+      const published = await client.publishApplication(orgId(), applicationId, channel);
+      setMessage(`Published on ${channel}`);
       setHostedPath((published.hostedPath as string | null) ?? null);
+      setChannels((published.channels as typeof channels) ?? {});
       setStatus(String(published.status ?? 'published'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Publish failed');
+    }
+  }
+
+  async function mintToken(channel: 'hosted_web' | 'embed' | 'api' | 'desktop') {
+    setError(null);
+    const pubId = channels[channel]?.publicationId;
+    if (!pubId) {
+      setError(`Publish ${channel} first`);
+      return;
+    }
+    try {
+      const token = await client.createPublicationToken(orgId(), pubId, {
+        name: `${channel}-default`,
+        expiresInDays: 30,
+      });
+      setMintedToken(token.token);
+      setMessage(`Minted ${channel} publication token (shown once)`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Token mint failed');
     }
   }
 
@@ -269,15 +293,50 @@ export default function ApplicationDetailPage() {
         <Button onClick={save} disabled={saving}>
           {saving ? 'Saving…' : 'Save draft'}
         </Button>
-        <Button variant="secondary" onClick={publish}>
-          Publish hosted app
-        </Button>
-        {hostedPath ? (
-          <a href={`http://localhost:3001${hostedPath}`} target="_blank" rel="noreferrer">
-            Open {hostedPath}
-          </a>
-        ) : null}
       </div>
+
+      <Panel title="Publish anywhere">
+        <div className="stack">
+          <p className="muted" style={{ marginTop: 0 }}>
+            Each channel gets its own active publication. Mint a <code>pub_</code> token for embed/API
+            end users.
+          </p>
+          {(
+            [
+              ['hosted_web', 'Hosted web', channels.hosted_web?.url ?? (hostedPath ? `http://localhost:3001${hostedPath}` : null)],
+              ['embed', 'Embed iframe', channels.embed?.url ?? null],
+              ['api', 'Public API', channels.api ? 'http://localhost:4000/api/v1' : null],
+              ['desktop', 'Desktop shell', channels.desktop ? 'Open desktop app with org/app slug' : null],
+            ] as const
+          ).map(([channel, label, link]) => (
+            <div key={channel} className="row" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+              <strong style={{ minWidth: 110 }}>{label}</strong>
+              <Button variant="secondary" onClick={() => void publish(channel)}>
+                Publish
+              </Button>
+              <Button variant="secondary" onClick={() => void mintToken(channel)}>
+                Mint token
+              </Button>
+              {link ? (
+                typeof link === 'string' && link.startsWith('http') ? (
+                  <a href={link} target="_blank" rel="noreferrer">
+                    Open
+                  </a>
+                ) : (
+                  <span className="muted">{link}</span>
+                )
+              ) : (
+                <span className="muted">Not published</span>
+              )}
+            </div>
+          ))}
+          {mintedToken ? (
+            <p className="success">
+              Token (copy now): <code>{mintedToken}</code>
+            </p>
+          ) : null}
+        </div>
+      </Panel>
 
       <Panel title="Preview">
         <div

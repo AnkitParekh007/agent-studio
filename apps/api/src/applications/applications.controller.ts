@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { PUBLICATION_CHANNELS } from '@agent-studio/domain';
 import { z } from 'zod';
 import { AuthCtx } from '../auth/auth.decorator.js';
 import { AuthGuard } from '../auth/auth.guard.js';
@@ -6,6 +7,10 @@ import type { RequestContext } from '../auth/auth.types.js';
 import { RequirePermissions } from '../auth/permissions.decorator.js';
 import { PermissionsGuard } from '../auth/permissions.guard.js';
 import { ApplicationsService } from './applications.service.js';
+
+const channelSchema = z.enum(
+  PUBLICATION_CHANNELS as unknown as [typeof PUBLICATION_CHANNELS[number], ...typeof PUBLICATION_CHANNELS[number][]],
+);
 
 @Controller()
 export class ApplicationsController {
@@ -74,15 +79,29 @@ export class ApplicationsController {
   @Post('api/applications/:applicationId/publish')
   @UseGuards(AuthGuard, PermissionsGuard)
   @RequirePermissions('application:publish')
-  publish(@AuthCtx() ctx: RequestContext, @Param('applicationId') applicationId: string) {
-    return this.applications.publish(ctx, applicationId);
+  publish(
+    @AuthCtx() ctx: RequestContext,
+    @Param('applicationId') applicationId: string,
+    @Body() body: unknown,
+  ) {
+    const input = z
+      .object({ channel: channelSchema.optional() })
+      .parse(body ?? {});
+    return this.applications.publish(ctx, applicationId, input.channel ?? 'hosted_web');
   }
 
   @Post('api/applications/:applicationId/unpublish')
   @UseGuards(AuthGuard, PermissionsGuard)
   @RequirePermissions('application:publish')
-  unpublish(@AuthCtx() ctx: RequestContext, @Param('applicationId') applicationId: string) {
-    return this.applications.unpublish(ctx, applicationId);
+  unpublish(
+    @AuthCtx() ctx: RequestContext,
+    @Param('applicationId') applicationId: string,
+    @Body() body: unknown,
+  ) {
+    const input = z
+      .object({ channel: channelSchema.optional() })
+      .parse(body ?? {});
+    return this.applications.unpublish(ctx, applicationId, input.channel ?? 'hosted_web');
   }
 
   @Post('api/applications/:applicationId/rollback')
@@ -147,7 +166,11 @@ export class ApplicationsController {
   }
 
   @Get('api/public/apps/:orgSlug/:appSlug')
-  publicApp(@Param('orgSlug') orgSlug: string, @Param('appSlug') appSlug: string) {
-    return this.applications.getPublicApp(orgSlug, appSlug);
+  publicApp(
+    @Param('orgSlug') orgSlug: string,
+    @Param('appSlug') appSlug: string,
+    @Query('channel') channel?: string,
+  ) {
+    return this.applications.getPublicApp(orgSlug, appSlug, channel ?? 'hosted_web');
   }
 }

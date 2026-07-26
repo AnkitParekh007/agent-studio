@@ -144,12 +144,41 @@ export const client = {
       body: JSON.stringify(body),
     });
   },
-  publishApplication(organizationId: string, applicationId: string) {
+  publishApplication(
+    organizationId: string,
+    applicationId: string,
+    channel: 'hosted_web' | 'embed' | 'api' | 'desktop' = 'hosted_web',
+  ) {
     return api<Record<string, unknown>>(`/api/applications/${applicationId}/publish`, {
       method: 'POST',
       organizationId,
-      body: '{}',
+      body: JSON.stringify({ channel }),
     });
+  },
+  unpublishApplication(
+    organizationId: string,
+    applicationId: string,
+    channel: 'hosted_web' | 'embed' | 'api' | 'desktop' = 'hosted_web',
+  ) {
+    return api<Record<string, unknown>>(`/api/applications/${applicationId}/unpublish`, {
+      method: 'POST',
+      organizationId,
+      body: JSON.stringify({ channel }),
+    });
+  },
+  createPublicationToken(
+    organizationId: string,
+    publicationId: string,
+    body: { name?: string; expiresInDays?: number } = {},
+  ) {
+    return api<{ id: string; token: string; publicationId: string }>(
+      `/api/publications/${publicationId}/tokens`,
+      {
+        method: 'POST',
+        organizationId,
+        body: JSON.stringify(body),
+      },
+    );
   },
   listVersions(organizationId: string, agentId: string) {
     return api<Array<Record<string, unknown>>>(`/api/agents/${agentId}/versions`, {
