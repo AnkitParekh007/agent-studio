@@ -1,70 +1,50 @@
 # Desktop releases
 
-Tauri 2 Windows shell lives in `apps/desktop-shell`.
+Tauri 2 Windows shell: `apps/desktop-shell`.
 
-## What the shell does
+## What ships
 
-- Authenticates against the platform (`POST /api/auth/sign-in/email`)
-- Stores the session cookie in the **OS keychain** (Windows Credential Manager via the `keyring` crate)
-- Loads authorized public application definitions (`GET /api/public/apps/:org/:app`)
-- Streams chat through the Agent Gateway (`/api/gateway/sessions*`)
-- Never receives provider keys, MCP credentials, or admin tokens
-- Ships with **NSIS bundling** and **tauri-plugin-updater** enabled
+- Platform sign-in + OS keychain session
+- Published app chat via Agent Gateway
+- NSIS installer + updater artifacts (`bundle.active: true`)
+- In-app **Check updates** (`@tauri-apps/plugin-updater`)
 
-Authenticated HTTP from the WebView goes through Rust commands so the session cookie can be attached safely (browsers forbid setting `Cookie` from JS).
-
-## Local development
-
-Prerequisites on Windows:
-
-- Node 20+, pnpm
-- Rust toolchain (`rustup default stable`)
-- **MSVC linker** — Visual Studio 2022 Build Tools with the “Desktop development with C++” workload (`link.exe` on PATH)
+## Generate updater keys (once)
 
 ```bash
-pnpm desktop:dev
+node scripts/generate-desktop-updater-keys.mjs
 ```
 
-Frontend-only (no native keychain; session kept in `sessionStorage`):
+1. Copy the printed **public** key into `apps/desktop-shell/src-tauri/tauri.conf.json` → `plugins.updater.pubkey`.
+2. Store the private key contents in GitHub Actions secret `TAURI_SIGNING_PRIVATE_KEY` (optional password: `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`).
+3. Point `plugins.updater.endpoints` at your CDN that serves Tauri update JSON + signed artifacts.
 
-```bash
-pnpm --filter @agent-studio/desktop-shell dev
-```
+Private keys live under `.secrets/` (gitignored).
 
-Add desktop origins to `CORS_ORIGINS` / Better Auth trusted origins:
+## Authenticode
 
-`http://localhost:1420`, `tauri://localhost`, `https://tauri.localhost`
+Set `bundle.windows.certificateThumbprint` locally, or supply CI secrets:
 
-## Packaging
+- `WINDOWS_CERT_BASE64` — PFX bytes, base64
+- `WINDOWS_CERT_PASSWORD`
+
+Workflow: `.github/workflows/desktop-release.yml` (tag `desktop-v*` or manual dispatch).
+
+## Build locally
 
 ```bash
 pnpm desktop:build
 ```
 
-Produces an NSIS installer under `apps/desktop-shell/src-tauri/target/release/bundle/`.
+Artifacts: `apps/desktop-shell/src-tauri/target/release/bundle/`.
 
-`bundle.active` is **true**. Before production:
+## CSP / allowlists
 
-1. Set `bundle.windows.certificateThumbprint` to your Authenticode cert thumbprint (or sign in CI after build).
-2. Replace the updater `pubkey` in `tauri.conf.json` with your real minisign/ed25519 public key from `tauri signer generate`.
-3. Point `plugins.updater.endpoints` at your release CDN that serves Tauri update JSON + artifacts.
-4. Expand CSP / capabilities HTTP allowlists for production API hosts.
-
-## Auto-update
-
-Updater plugin is registered. Frontend can call:
-
-```ts
-import { check } from '@tauri-apps/plugin-updater';
-const update = await check();
-```
-
-Until endpoints serve signed manifests matching the configured pubkey, `check()` will fail closed (no update).
+Expand `tauri.conf.json` CSP `connect-src` and `capabilities/default.json` HTTP allowlist for production API + release CDN hosts.
 
 ## Smoke
 
 ```bash
 pnpm smoke:desktop
+pnpm smoke:publish-channels
 ```
-
-API-level path (does not launch Tauri).

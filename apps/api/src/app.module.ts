@@ -12,6 +12,7 @@ import { GovernanceModule } from './governance/governance.module.js';
 import { PlaygroundModule } from './playground/playground.module.js';
 import { SecretsModule } from './secrets/secrets.module.js';
 import { IntegrationsModule } from './integrations/integrations.module.js';
+import { PublicApiModule } from './public-api/public-api.module.js';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { IntegrationsModule } from './integrations/integrations.module.js';
     SecretsModule,
     AuditModule,
     IntegrationsModule,
+    PublicApiModule,
   ],
   controllers: [HealthController],
 })

@@ -1,0 +1,62 @@
+name: Desktop release
+
+on:
+  workflow_dispatch:
+    inputs:
+      sign:
+        description: 'Sign with Authenticode when WINDOWS_CERT_* secrets are present'
+        required: false
+        default: 'false'
+  push:
+    tags:
+      - 'desktop-v*'
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/desktop-shell
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8.7.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install dependencies
+        working-directory: .
+        run: pnpm install --frozen-lockfile
+      - name: Build workspace packages
+        working-directory: .
+        run: pnpm --filter @agent-studio/ui build
+      - name: Build Tauri (NSIS + updater artifacts)
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm tauri:build
+      - name: Optional Authenticode sign
+        if: ${{ github.event.inputs.sign == 'true' && secrets.WINDOWS_CERT_BASE64 != '' }}
+        shell: pwsh
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          $bytes = [Convert]::FromBase64String($env:WINDOWS_CERT_BASE64)
+          $pfx = Join-Path $env:RUNNER_TEMP 'codesign.pfx'
+          [IO.File]::WriteAllBytes($pfx, $bytes)
+          Get-ChildItem -Recurse src-tauri/target/release/bundle -Include *.exe,*.msi |
+            ForEach-Object {
+              & signtool sign /f $pfx /p $env:WINDOWS_CERT_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+            }
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-studio-desktop-windows
+          path: |
+            apps/desktop-shell/src-tauri/target/release/bundle/nsis/**
+            apps/desktop-shell/src-tauri/target/release/bundle/msi/**

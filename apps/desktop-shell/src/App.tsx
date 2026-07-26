@@ -18,6 +18,7 @@ export function App() {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [updateMessage, setUpdateMessage] = useState<string | null>(null);
   const [booting, setBooting] = useState(true);
 
   useEffect(() => {
@@ -94,6 +95,29 @@ export function App() {
     }
   }
 
+  async function checkForUpdates() {
+    setUpdateMessage(null);
+    setError(null);
+    try {
+      // Dynamic import keeps Vite web preview working without the native plugin.
+      const { check } = await import('@tauri-apps/plugin-updater');
+      const update = await check();
+      if (!update) {
+        setUpdateMessage('You are on the latest version.');
+        return;
+      }
+      setUpdateMessage(`Update ${update.version} available — downloading…`);
+      await update.downloadAndInstall();
+      setUpdateMessage('Update installed. Restart the app to finish.');
+    } catch (err) {
+      setUpdateMessage(
+        err instanceof Error
+          ? `Updater: ${err.message}`
+          : 'Updater unavailable (configure pubkey + release CDN for production).',
+      );
+    }
+  }
+
   async function send(text: string) {
     if (!app || !text.trim()) return;
     setBusy(true);
@@ -144,6 +168,9 @@ export function App() {
         {userName ? (
           <div className="row">
             <span className="muted">{userName}</span>
+            <button className="secondary" onClick={() => void checkForUpdates()}>
+              Check updates
+            </button>
             <button className="secondary" onClick={() => void signOut()}>
               Sign out
             </button>
@@ -153,6 +180,7 @@ export function App() {
 
       <main className="shell">
         {error ? <p className="error">{error}</p> : null}
+        {updateMessage ? <p className="muted">{updateMessage}</p> : null}
 
         {!userName ? (
           <section className="card">
