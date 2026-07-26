@@ -18,7 +18,8 @@
     "db:migrate": "pnpm --filter @agent-studio/database migrate",
     "db:seed": "pnpm --filter @agent-studio/database seed",
     "db:studio": "pnpm --filter @agent-studio/database studio",
-    "smoke": "node scripts/smoke-vertical-slice.mjs"
+    "smoke": "node scripts/smoke-vertical-slice.mjs",
+    "smoke:playground": "node scripts/smoke-playground.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

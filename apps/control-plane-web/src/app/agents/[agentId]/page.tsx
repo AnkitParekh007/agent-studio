@@ -119,6 +119,14 @@ export default function AgentDetailPage() {
             <Button variant="secondary" onClick={submit}>
               Submit for approval
             </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                window.location.href = `/playground?agentId=${agentId}`;
+              }}
+            >
+              Open playground
+            </Button>
           </div>
         </div>
       </Panel>

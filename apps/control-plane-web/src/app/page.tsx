@@ -67,6 +67,9 @@ export default function HomePage() {
             </ul>
             <div className="row">
               <Button onClick={() => (window.location.href = '/agents')}>Open agents</Button>
+              <Button variant="secondary" onClick={() => (window.location.href = '/playground')}>
+                Open playground
+              </Button>
               <Button variant="secondary" onClick={() => (window.location.href = '/reviews')}>
                 Open reviews
               </Button>

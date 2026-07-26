@@ -129,6 +129,23 @@ export class LocalRuntimeAdapter implements AgentRuntimeAdapter {
         continue;
       }
 
+      const toolName = 'local.echo';
+      yield {
+        id: randomUUID(),
+        type: 'tool.started',
+        sequence: ++session.sequence,
+        timestamp: new Date().toISOString(),
+        payload: { toolName, input: { text: next } },
+      };
+      await new Promise((r) => setTimeout(r, 30));
+      yield {
+        id: randomUUID(),
+        type: 'tool.completed',
+        sequence: ++session.sequence,
+        timestamp: new Date().toISOString(),
+        payload: { toolName, output: { echoed: next } },
+      };
+
       const reply = `[local-dev] Echo: ${next}`;
       for (const chunk of chunkText(reply, 24)) {
         yield {
@@ -155,7 +172,7 @@ export class LocalRuntimeAdapter implements AgentRuntimeAdapter {
         payload: {
           inputTokens: next.length,
           outputTokens: reply.length,
-          toolCallCount: 0,
+          toolCallCount: 1,
           estimatedCostUsd: 0,
         },
       };

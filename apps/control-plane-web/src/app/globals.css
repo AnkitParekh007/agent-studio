@@ -126,3 +126,51 @@ label {
   padding: 0.75rem;
   font-size: 0.85rem;
 }
+
+.playground-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  .playground-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chat-log {
+  min-height: 280px;
+  max-height: 480px;
+  overflow: auto;
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid var(--as-border);
+  border-radius: 10px;
+  background: rgba(13, 21, 36, 0.55);
+}
+
+.bubble {
+  max-width: 85%;
+  padding: 0.65rem 0.8rem;
+  border-radius: 12px;
+  line-height: 1.4;
+}
+
+.bubble.user {
+  justify-self: end;
+  background: var(--as-accent-strong);
+  color: white;
+}
+
+.bubble.assistant {
+  justify-self: start;
+  background: #1a2438;
+  border: 1px solid var(--as-border);
+}
+
+.timeline-item {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--as-border);
+}
