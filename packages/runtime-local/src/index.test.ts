@@ -29,6 +29,7 @@ describe('LocalRuntimeAdapter', () => {
       events.push(event);
       if (event.type === 'session.ended') break;
     }
+    expect(events.some((e) => e.type === 'tool.started')).toBe(true);
     expect(events.some((e) => e.type === 'message.completed')).toBe(true);
   });
 });

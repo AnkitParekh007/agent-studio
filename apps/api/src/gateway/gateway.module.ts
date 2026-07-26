@@ -8,5 +8,7 @@ import { GatewayService } from './gateway.service.js';
   imports: [AuthModule, AgentsModule],
   controllers: [GatewayController],
   providers: [GatewayService],
+  exports: [GatewayService],
 })
 export class GatewayModule {}
+

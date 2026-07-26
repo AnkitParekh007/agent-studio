@@ -7,6 +7,7 @@ import { CoreModule } from './core/core.module.js';
 import { GatewayModule } from './gateway/gateway.module.js';
 import { HealthController } from './health.controller.js';
 import { OrgsModule } from './orgs/orgs.module.js';
+import { PlaygroundModule } from './playground/playground.module.js';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { OrgsModule } from './orgs/orgs.module.js';
     ApprovalsModule,
     ApplicationsModule,
     GatewayModule,
+    PlaygroundModule,
   ],
   controllers: [HealthController],
 })

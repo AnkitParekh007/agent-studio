@@ -68,6 +68,7 @@ export const client = {
     return api<Record<string, unknown>>(`/api/agents/${agentId}/submit`, {
       method: 'POST',
       organizationId,
+      body: '{}',
     });
   },
   pendingApprovals(organizationId: string) {
@@ -97,5 +98,82 @@ export const client = {
       organizationId,
       body: JSON.stringify(body),
     });
+  },
+  listVersions(organizationId: string, agentId: string) {
+    return api<Array<Record<string, unknown>>>(`/api/agents/${agentId}/versions`, {
+      organizationId,
+    });
+  },
+  startPlayground(
+    organizationId: string,
+    body: { agentId: string; versionId?: string; message?: string },
+  ) {
+    return api<{
+      sessionId: string;
+      versionId: string;
+      versionStatus: string;
+      versionNumber: number;
+      runtimeProvider: string;
+      starterPrompts: string[];
+      developmentOnly: boolean;
+      correlationId: string;
+    }>('/api/playground/sessions', {
+      method: 'POST',
+      organizationId,
+      body: JSON.stringify(body),
+    });
+  },
+  cancelPlayground(organizationId: string, sessionId: string) {
+    return api<{ ok: boolean }>(`/api/playground/sessions/${sessionId}/cancel`, {
+      method: 'POST',
+      organizationId,
+      body: '{}',
+    });
+  },
+  getPlaygroundSession(organizationId: string, sessionId: string) {
+    return api<{
+      session: Record<string, unknown>;
+      events: Array<{
+        id: string;
+        sequence: number;
+        type: string;
+        payload: Record<string, unknown>;
+        createdAt: string;
+      }>;
+      usage: Array<Record<string, unknown>>;
+    }>(`/api/playground/sessions/${sessionId}`, { organizationId });
+  },
+  async streamPlayground(
+    organizationId: string,
+    sessionId: string,
+    onEvent: (eventType: string, data: Record<string, unknown>) => void,
+  ) {
+    const res = await fetch(`${API_BASE}/api/playground/sessions/${sessionId}/stream`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'x-organization-id': organizationId },
+    });
+    if (!res.ok || !res.body) {
+      throw new Error(await res.text());
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop() ?? '';
+      for (const part of parts) {
+        const lines = part.split('\n');
+        const eventLine = lines.find((l) => l.startsWith('event:'));
+        const dataLine = lines.find((l) => l.startsWith('data:'));
+        if (!dataLine) continue;
+        const eventType = eventLine?.slice(6).trim() ?? 'message';
+        const data = JSON.parse(dataLine.slice(5)) as Record<string, unknown>;
+        onEvent(eventType, data);
+      }
+    }
   },
 };
