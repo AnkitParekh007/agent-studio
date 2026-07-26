@@ -31,6 +31,7 @@ Default seed user (development only):
 | --- | --- |
 | `apps/control-plane-web` | Builder, playground, Application Studio, reviews |
 | `apps/agent-web-runtime` | Hosted published applications |
+| `apps/desktop-shell` | Tauri 2 desktop client (keychain session + gateway chat) |
 | `apps/api` | NestJS control plane + Agent Gateway |
 | `apps/worker` | BullMQ provision and background jobs |
 | `packages/domain` | Types, lifecycle/version state machines |
@@ -61,4 +62,5 @@ See [`docs/`](docs/) for product vision, architecture, security, local setup, te
 | `pnpm lint` / `typecheck` / `test` / `build` | Quality gates |
 | `pnpm db:migrate` | Apply SQL migrations |
 | `pnpm db:seed` | Load development seed data (refuses in production) |
-| `pnpm smoke` / `smoke:playground` / `smoke:application-studio` | API smokes (stack must be running) |
+| `pnpm smoke` / `smoke:playground` / `smoke:application-studio` / `smoke:desktop` | API smokes (stack must be running) |
+| `pnpm desktop:dev` | Run Tauri desktop shell (requires Rust toolchain) |

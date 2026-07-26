@@ -12,6 +12,6 @@ Repository was empty (LICENSE + .gitignore only) on 2026-07-26.
 | Runtime | Missing | Local + Claude adapters |
 | Gateway | Missing | NestJS SSE gateway |
 | Publishing | Missing | Hosted Next.js runtime |
-| Desktop | Missing | Deferred |
+| Desktop | Tauri 2 shell landed (Phase 6); signing/auto-update still deferred | Partial |
 | Observability | Missing | Audit + usage tables |
 | Secrets | Missing | Encrypted store + references |

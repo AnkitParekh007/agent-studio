@@ -7,4 +7,4 @@
 
 Commands: `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`.
 
-API smokes (with `pnpm dev` stack up): `pnpm smoke`, `pnpm smoke:playground`, `pnpm smoke:application-studio`.
+API smokes (with `pnpm dev` stack up): `pnpm smoke`, `pnpm smoke:playground`, `pnpm smoke:application-studio`, `pnpm smoke:desktop`.
