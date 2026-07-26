@@ -1,12 +1,17 @@
 import {
   BadRequestException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { corsOriginList } from '@agent-studio/config';
 import {
   agentDeployments,
   newId,
+  organizationSettings,
   publications,
   runtimeEvents,
   runtimeSessions,
@@ -20,26 +25,40 @@ import {
   type AgentVersionConfig,
 } from '@agent-studio/domain';
 import type { AgentRuntimeEvent } from '@agent-studio/runtime-core';
-import { and, eq } from 'drizzle-orm';
-import type { FastifyReply } from 'fastify';
+import { and, eq, gte, sql } from 'drizzle-orm';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AgentsService } from '../agents/agents.service.js';
 import type { RequestContext } from '../auth/auth.types.js';
 import { AuditService } from '../core/audit.service.js';
-import { DB, RUNTIME_REGISTRY, type Db, type Registry } from '../core/tokens.js';
+import { logWarn } from '../core/logger.js';
+import { MetricsService } from '../core/metrics.service.js';
+import { DB, ENV, RUNTIME_REGISTRY, type Db, type Env, type Registry } from '../core/tokens.js';
 
 @Injectable()
 export class GatewayService {
+  private readonly rateBuckets = new Map<string, number[]>();
+
   constructor(
     @Inject(DB) private readonly db: Db,
+    @Inject(ENV) private readonly env: Env,
     @Inject(RUNTIME_REGISTRY) private readonly registry: Registry,
     @Inject(AgentsService) private readonly agents: AgentsService,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(MetricsService) private readonly metrics: MetricsService,
   ) {}
 
   async startSession(
     ctx: RequestContext,
     input: { publicationId: string; message?: string },
   ) {
+    this.enforceRateLimit(ctx.organizationId);
+    await this.enforceConcurrentSessions(ctx.organizationId);
+    await this.enforceOrgMonthlySpend(ctx.organizationId);
+
+    if (ctx.authMode === 'publication_token' && ctx.publicationId !== input.publicationId) {
+      throw new ForbiddenException('Publication token is not valid for this publication');
+    }
+
     const [publication] = await this.db
       .select()
       .from(publications)
@@ -94,16 +113,17 @@ export class GatewayService {
       agentId: publication.agentId,
       versionId: publication.versionId,
       deploymentId: deployment.id,
-      userId: ctx.user.id,
+      userId: ctx.user.id.startsWith('pubtoken:') ? null : ctx.user.id,
       runtimeProvider: deployment.runtimeProvider,
       providerSessionId: runtimeSession.providerSessionId,
       status: 'active',
       correlationId,
     });
 
+    this.metrics.increment('gateway_sessions_started');
     await this.audit.record({
       organizationId: ctx.organizationId,
-      actorUserId: ctx.user.id,
+      actorUserId: ctx.user.id.startsWith('pubtoken:') ? null : ctx.user.id,
       action: 'session.started',
       resourceType: 'runtime_session',
       resourceId: sessionId,
@@ -112,6 +132,7 @@ export class GatewayService {
         publicationId: publication.id,
         runtimeProvider: deployment.runtimeProvider,
         model: version.config.model,
+        authMode: ctx.authMode ?? 'session',
       },
     });
 
@@ -124,7 +145,9 @@ export class GatewayService {
   }
 
   async submitInput(ctx: RequestContext, sessionId: string, text: string) {
+    this.enforceRateLimit(ctx.organizationId);
     const session = await this.getSession(ctx.organizationId, sessionId);
+    this.assertSessionNotTimedOut(session.createdAt);
     if (!session.providerSessionId) throw new BadRequestException('Session missing provider id');
     const adapter = this.registry.get(session.runtimeProvider as 'local' | 'claude');
     await adapter.submitSessionInput({
@@ -143,15 +166,32 @@ export class GatewayService {
       .update(runtimeSessions)
       .set({ status: 'cancelled', endedAt: new Date(), updatedAt: new Date() })
       .where(eq(runtimeSessions.id, sessionId));
+    this.metrics.increment('gateway_sessions_cancelled');
     return { ok: true };
   }
 
-  async stream(ctx: RequestContext, sessionId: string, reply: FastifyReply) {
+  async stream(
+    ctx: RequestContext,
+    sessionId: string,
+    reply: FastifyReply,
+    req?: FastifyRequest,
+  ) {
+    const allowed = corsOriginList(this.env);
+    const originHeader = typeof req?.headers.origin === 'string' ? req.headers.origin : undefined;
+    const corsOrigin =
+      originHeader && allowed.includes(originHeader) ? originHeader : allowed[0] ?? '';
+
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
+      ...(corsOrigin
+        ? {
+            'Access-Control-Allow-Origin': corsOrigin,
+            'Access-Control-Allow-Credentials': 'true',
+            Vary: 'Origin',
+          }
+        : {}),
     });
 
     try {
@@ -162,6 +202,11 @@ export class GatewayService {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'stream failed';
+      logWarn('gateway_stream_error', {
+        organizationId: ctx.organizationId,
+        sessionId,
+        message,
+      });
       reply.raw.write(`event: error\n`);
       reply.raw.write(`data: ${JSON.stringify({ message })}\n\n`);
     } finally {
@@ -180,6 +225,7 @@ export class GatewayService {
 
   private async *iterateSessionEvents(ctx: RequestContext, sessionId: string) {
     const session = await this.getSession(ctx.organizationId, sessionId);
+    this.assertSessionNotTimedOut(session.createdAt);
     if (!session.providerSessionId) throw new BadRequestException('Session missing provider id');
     const adapter = this.registry.get(session.runtimeProvider as 'local' | 'claude');
     const version = await this.agents.getVersion(ctx.organizationId, session.versionId);
@@ -187,6 +233,21 @@ export class GatewayService {
     for await (const event of adapter.streamSessionEvents({
       providerSessionId: session.providerSessionId,
     })) {
+      if (Date.now() - session.createdAt.getTime() > this.env.GATEWAY_SESSION_TIMEOUT_MS) {
+        const timeout: AgentRuntimeEvent = {
+          id: newId('evt'),
+          type: 'error',
+          sequence: event.sequence + 1,
+          timestamp: new Date().toISOString(),
+          payload: { message: 'Session timed out', code: 'session_timeout' },
+        };
+        await this.persistEvent(ctx.organizationId, sessionId, timeout);
+        await this.forceEnd(ctx.organizationId, sessionId, session.providerSessionId);
+        this.metrics.increment('gateway_session_timeouts');
+        yield timeout;
+        break;
+      }
+
       const policyEvent = await this.enforceAndPersist(
         ctx,
         sessionId,
@@ -196,6 +257,92 @@ export class GatewayService {
       );
       yield policyEvent;
       if (policyEvent.type === 'session.ended' || policyEvent.type === 'error') break;
+    }
+  }
+
+  private assertSessionNotTimedOut(createdAt: Date) {
+    if (Date.now() - createdAt.getTime() > this.env.GATEWAY_SESSION_TIMEOUT_MS) {
+      throw new BadRequestException('Session timed out');
+    }
+  }
+
+  private enforceRateLimit(organizationId: string) {
+    const now = Date.now();
+    const windowMs = 60_000;
+    const limit = this.env.GATEWAY_RATE_LIMIT_PER_MINUTE;
+    const prev = this.rateBuckets.get(organizationId) ?? [];
+    const recent = prev.filter((t) => now - t < windowMs);
+    if (recent.length >= limit) {
+      this.metrics.increment('gateway_rate_limited');
+      throw new HttpException(
+        `Gateway rate limit exceeded (${limit} requests/minute)`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    recent.push(now);
+    this.rateBuckets.set(organizationId, recent);
+  }
+
+  private async enforceConcurrentSessions(organizationId: string) {
+    const [settings] = await this.db
+      .select()
+      .from(organizationSettings)
+      .where(eq(organizationSettings.organizationId, organizationId))
+      .limit(1);
+    const max =
+      settings?.maxConcurrentSessions ?? this.env.GATEWAY_MAX_CONCURRENT_SESSIONS;
+
+    const [row] = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(runtimeSessions)
+      .where(
+        and(
+          eq(runtimeSessions.organizationId, organizationId),
+          eq(runtimeSessions.status, 'active'),
+        ),
+      );
+    if ((row?.count ?? 0) >= max) {
+      this.metrics.increment('gateway_concurrency_denied');
+      throw new HttpException(
+        `Max concurrent sessions reached (${max})`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  private async enforceOrgMonthlySpend(organizationId: string) {
+    const [settings] = await this.db
+      .select()
+      .from(organizationSettings)
+      .where(eq(organizationSettings.organizationId, organizationId))
+      .limit(1);
+    if (!settings?.maxUsdMonthly) return;
+
+    const max = Number(settings.maxUsdMonthly);
+    if (!Number.isFinite(max)) return;
+
+    const monthStart = new Date();
+    monthStart.setUTCDate(1);
+    monthStart.setUTCHours(0, 0, 0, 0);
+
+    const [row] = await this.db
+      .select({
+        total: sql<string>`coalesce(sum(${usageRecords.estimatedCostUsd}::numeric), 0)::text`,
+      })
+      .from(usageRecords)
+      .where(
+        and(
+          eq(usageRecords.organizationId, organizationId),
+          gte(usageRecords.createdAt, monthStart),
+        ),
+      );
+
+    const spent = Number(row?.total ?? 0);
+    if (spent >= max) {
+      this.metrics.increment('gateway_org_budget_denied');
+      throw new ForbiddenException(
+        `Organization monthly spend limit reached ($${max.toFixed(2)})`,
+      );
     }
   }
 
@@ -213,7 +360,7 @@ export class GatewayService {
       if (!toolCheck.ok) {
         await this.audit.record({
           organizationId: ctx.organizationId,
-          actorUserId: ctx.user.id,
+          actorUserId: ctx.user.id.startsWith('pubtoken:') ? null : ctx.user.id,
           action: 'session.policy_denied',
           resourceType: 'runtime_session',
           resourceId: sessionId,
@@ -238,7 +385,7 @@ export class GatewayService {
       if (!budgetCheck.ok) {
         await this.audit.record({
           organizationId: ctx.organizationId,
-          actorUserId: ctx.user.id,
+          actorUserId: ctx.user.id.startsWith('pubtoken:') ? null : ctx.user.id,
           action: 'session.budget_exceeded',
           resourceType: 'runtime_session',
           resourceId: sessionId,

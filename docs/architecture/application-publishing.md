@@ -29,6 +29,15 @@ Stable route:
 
 The hosted runtime loads **public** application config only (name, theme, welcome message, starter prompts, feature flags, footer links). It never receives provider keys, MCP credentials, or admin tokens.
 
+### End-user auth for hosted chat
+
+Gateway calls accept either:
+
+1. A Better Auth session cookie for an org member, or
+2. A publication token (`x-publication-token: pub_…` or `Authorization: Bearer pub_…`) minted via `POST /api/publications/:publicationId/tokens`.
+
+The hosted app reads `?token=pub_…` (stored in `sessionStorage`) and sends it on gateway requests. Tokens are hashed at rest and can be revoked.
+
 All chat traffic goes through the Agent Gateway with short-lived session authorization.
 
 ## Later surfaces

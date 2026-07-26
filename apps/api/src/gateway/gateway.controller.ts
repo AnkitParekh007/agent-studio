@@ -47,9 +47,9 @@ export class GatewayController {
   async stream(
     @AuthCtx() ctx: RequestContext,
     @Param('sessionId') sessionId: string,
-    @Req() _req: FastifyRequest,
+    @Req() req: FastifyRequest,
     @Res() reply: FastifyReply,
   ) {
-    await this.gateway.stream(ctx, sessionId, reply);
+    await this.gateway.stream(ctx, sessionId, reply, req);
   }
 }

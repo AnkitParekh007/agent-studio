@@ -3,3 +3,4 @@ export * from './tenancy.js';
 export * from './agents.js';
 export * from './runtime.js';
 export * from './governance.js';
+export * from './hardening.js';

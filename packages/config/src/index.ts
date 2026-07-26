@@ -19,6 +19,12 @@ const envSchema = z.object({
   DEFAULT_RUNTIME_PROVIDER: z.enum(['local', 'claude']).default('local'),
   ANTHROPIC_API_KEY: z.string().optional().default(''),
   ANTHROPIC_BASE_URL: z.string().url().default('https://api.anthropic.com'),
+  /** When false (default), submitter cannot approve their own request. */
+  ALLOW_SELF_APPROVAL: z.preprocess((v) => v === true || v === 'true', z.boolean()).default(false),
+  GATEWAY_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(60),
+  GATEWAY_MAX_CONCURRENT_SESSIONS: z.coerce.number().int().positive().default(20),
+  /** Soft session wall-clock timeout for gateway streams (ms). */
+  GATEWAY_SESSION_TIMEOUT_MS: z.coerce.number().int().positive().default(900_000),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

@@ -14,6 +14,7 @@ import {
   RUNTIME_REGISTRY,
 } from './tokens.js';
 import { AuditService } from './audit.service.js';
+import { MetricsService } from './metrics.service.js';
 
 @Global()
 @Module({
@@ -66,7 +67,8 @@ import { AuditService } from './audit.service.js';
         new Queue('agent-provision', { connection: { url: env.REDIS_URL } }),
     },
     AuditService,
+    MetricsService,
   ],
-  exports: [ENV, DB, AUTH, RUNTIME_REGISTRY, PROVISION_QUEUE, AuditService],
+  exports: [ENV, DB, AUTH, RUNTIME_REGISTRY, PROVISION_QUEUE, AuditService, MetricsService],
 })
 export class CoreModule {}

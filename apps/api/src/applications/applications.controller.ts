@@ -78,6 +78,25 @@ export class ApplicationsController {
     return this.applications.publish(ctx, applicationId);
   }
 
+  @Post('api/applications/:applicationId/unpublish')
+  @UseGuards(AuthGuard, PermissionsGuard)
+  @RequirePermissions('application:publish')
+  unpublish(@AuthCtx() ctx: RequestContext, @Param('applicationId') applicationId: string) {
+    return this.applications.unpublish(ctx, applicationId);
+  }
+
+  @Post('api/applications/:applicationId/rollback')
+  @UseGuards(AuthGuard, PermissionsGuard)
+  @RequirePermissions('agent:deploy')
+  rollback(
+    @AuthCtx() ctx: RequestContext,
+    @Param('applicationId') applicationId: string,
+    @Body() body: unknown,
+  ) {
+    const input = z.object({ publicationId: z.string().min(1) }).parse(body);
+    return this.applications.rollback(ctx, applicationId, input.publicationId);
+  }
+
   @Post('api/applications/publish')
   @UseGuards(AuthGuard, PermissionsGuard)
   @RequirePermissions('application:publish')
@@ -94,6 +113,37 @@ export class ApplicationsController {
       })
       .parse(body);
     return this.applications.createAndPublish(ctx, input);
+  }
+
+  @Get('api/publications/:publicationId/tokens')
+  @UseGuards(AuthGuard, PermissionsGuard)
+  @RequirePermissions('application:publish')
+  listTokens(@AuthCtx() ctx: RequestContext, @Param('publicationId') publicationId: string) {
+    return this.applications.listPublicationTokens(ctx, publicationId);
+  }
+
+  @Post('api/publications/:publicationId/tokens')
+  @UseGuards(AuthGuard, PermissionsGuard)
+  @RequirePermissions('application:publish')
+  createToken(
+    @AuthCtx() ctx: RequestContext,
+    @Param('publicationId') publicationId: string,
+    @Body() body: unknown,
+  ) {
+    const input = z
+      .object({
+        name: z.string().min(1).optional(),
+        expiresInDays: z.number().int().positive().optional(),
+      })
+      .parse(body ?? {});
+    return this.applications.createPublicationToken(ctx, publicationId, input);
+  }
+
+  @Post('api/publication-tokens/:tokenId/revoke')
+  @UseGuards(AuthGuard, PermissionsGuard)
+  @RequirePermissions('application:publish')
+  revokeToken(@AuthCtx() ctx: RequestContext, @Param('tokenId') tokenId: string) {
+    return this.applications.revokePublicationToken(ctx, tokenId);
   }
 
   @Get('api/public/apps/:orgSlug/:appSlug')

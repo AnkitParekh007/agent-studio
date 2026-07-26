@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -20,12 +21,13 @@ import { and, desc, eq } from 'drizzle-orm';
 import { AgentsService } from '../agents/agents.service.js';
 import type { RequestContext } from '../auth/auth.types.js';
 import { AuditService } from '../core/audit.service.js';
-import { DB, PROVISION_QUEUE, type Db, type ProvisionQueue } from '../core/tokens.js';
+import { DB, ENV, PROVISION_QUEUE, type Db, type Env, type ProvisionQueue } from '../core/tokens.js';
 
 @Injectable()
 export class ApprovalsService {
   constructor(
     @Inject(DB) private readonly db: Db,
+    @Inject(ENV) private readonly env: Env,
     @Inject(PROVISION_QUEUE) private readonly provisionQueue: ProvisionQueue,
     @Inject(AgentsService) private readonly agents: AgentsService,
     @Inject(AuditService) private readonly audit: AuditService,
@@ -172,6 +174,15 @@ export class ApprovalsService {
     const detail = await this.get(ctx.organizationId, requestId);
     if (detail.request.status !== 'pending') {
       throw new BadRequestException('Approval request is not pending');
+    }
+
+    if (
+      !this.env.ALLOW_SELF_APPROVAL &&
+      detail.request.submittedByUserId === ctx.user.id
+    ) {
+      throw new ForbiddenException(
+        'Separation of duties: submitter cannot approve or reject their own request',
+      );
     }
 
     const now = new Date();

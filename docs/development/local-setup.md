@@ -18,6 +18,7 @@ pnpm smoke:playground
 pnpm smoke:application-studio
 pnpm smoke:desktop
 pnpm smoke:governance
+pnpm smoke:enterprise
 ```
 
 Desktop shell (Phase 6) additionally needs a Rust toolchain, then:

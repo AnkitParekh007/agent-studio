@@ -49,7 +49,7 @@ All generated applications talk only to the Agent Gateway:
 - Authorize publication access
 - Resolve active approved version
 - Start/stream/cancel sessions via runtime adapter
-- Enforce quotas and rate limits
+- Enforce per-org rate limits, concurrent session caps, monthly spend, and session timeouts
 - Persist sanitized events, usage, and audit records
 
 Streaming uses Server-Sent Events (SSE).
@@ -65,4 +65,4 @@ Streaming uses Server-Sent Events (SSE).
 | Gateway | Missing | Session start + SSE |
 | Hosted apps | Missing | `/{org}/{app}` runtime |
 | Desktop | Tauri 2 shell (`apps/desktop-shell`) | Keychain session + gateway chat (Phase 6) |
-| Skills/MCP/Knowledge | Org catalogs + version attachments | Phase 7; secrets stay server-side |
+| Skills/MCP/Knowledge | Org catalogs + version attachments | Catalogs only today; not live MCP/RAG runtimes; secrets stay server-side |

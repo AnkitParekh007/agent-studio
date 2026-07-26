@@ -16,9 +16,11 @@ import {
   applicationDefinitions,
   newId,
   organizations,
+  publicationTokens,
   publications,
 } from '@agent-studio/database';
-import { and, desc, eq } from 'drizzle-orm';
+import { generatePublicationToken, hashToken } from '@agent-studio/domain';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { AgentsService } from '../agents/agents.service.js';
 import type { RequestContext } from '../auth/auth.types.js';
 import { AuditService } from '../core/audit.service.js';
@@ -278,6 +280,210 @@ export class ApplicationsService {
     });
 
     return this.get(ctx.organizationId, applicationId);
+  }
+
+  async unpublish(ctx: RequestContext, applicationId: string) {
+    const app = await this.get(ctx.organizationId, applicationId);
+    const now = new Date();
+    await this.db
+      .update(publications)
+      .set({ status: 'superseded', updatedAt: now })
+      .where(
+        and(
+          eq(publications.applicationId, applicationId),
+          eq(publications.status, 'active'),
+          eq(publications.channel, 'hosted_web'),
+        ),
+      );
+    await this.db
+      .update(applicationDefinitions)
+      .set({ status: 'draft', updatedAt: now })
+      .where(eq(applicationDefinitions.id, applicationId));
+
+    await this.audit.record({
+      organizationId: ctx.organizationId,
+      actorUserId: ctx.user.id,
+      action: 'application.unpublished',
+      resourceType: 'application',
+      resourceId: applicationId,
+      metadata: { slug: app.slug },
+    });
+
+    return this.get(ctx.organizationId, applicationId);
+  }
+
+  /** Reactivate a prior hosted_web publication (rollback). */
+  async rollback(ctx: RequestContext, applicationId: string, publicationId: string) {
+    const app = await this.get(ctx.organizationId, applicationId);
+    const target = app.publications.find((p) => p.id === publicationId);
+    if (!target || target.channel !== 'hosted_web') {
+      throw new NotFoundException('Publication not found');
+    }
+    if (!target.deploymentId) {
+      throw new BadRequestException('Publication has no deployment');
+    }
+
+    const [deployment] = await this.db
+      .select()
+      .from(agentDeployments)
+      .where(eq(agentDeployments.id, target.deploymentId))
+      .limit(1);
+    if (!deployment || deployment.status !== 'ready') {
+      throw new BadRequestException('Target deployment is not ready');
+    }
+
+    const now = new Date();
+    await this.db
+      .update(publications)
+      .set({ status: 'superseded', updatedAt: now })
+      .where(
+        and(
+          eq(publications.applicationId, applicationId),
+          eq(publications.status, 'active'),
+          eq(publications.channel, 'hosted_web'),
+        ),
+      );
+
+    const newPubId = newId('pub');
+    await this.db.insert(publications).values({
+      id: newPubId,
+      organizationId: ctx.organizationId,
+      applicationId,
+      agentId: target.agentId,
+      versionId: target.versionId,
+      deploymentId: target.deploymentId,
+      channel: 'hosted_web',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await this.db
+      .update(applicationDefinitions)
+      .set({ status: 'published', updatedAt: now })
+      .where(eq(applicationDefinitions.id, applicationId));
+
+    await this.audit.record({
+      organizationId: ctx.organizationId,
+      actorUserId: ctx.user.id,
+      action: 'application.rolled_back',
+      resourceType: 'publication',
+      resourceId: newPubId,
+      metadata: { applicationId, fromPublicationId: publicationId },
+    });
+
+    return this.get(ctx.organizationId, applicationId);
+  }
+
+  async createPublicationToken(
+    ctx: RequestContext,
+    publicationId: string,
+    input: { name?: string; expiresInDays?: number },
+  ) {
+    const [publication] = await this.db
+      .select()
+      .from(publications)
+      .where(
+        and(
+          eq(publications.id, publicationId),
+          eq(publications.organizationId, ctx.organizationId),
+          eq(publications.status, 'active'),
+        ),
+      )
+      .limit(1);
+    if (!publication) throw new NotFoundException('Active publication not found');
+
+    const token = generatePublicationToken();
+    const id = newId('ptok');
+    const now = new Date();
+    const expiresAt =
+      input.expiresInDays && input.expiresInDays > 0
+        ? new Date(now.getTime() + input.expiresInDays * 24 * 60 * 60 * 1000)
+        : null;
+
+    await this.db.insert(publicationTokens).values({
+      id,
+      organizationId: ctx.organizationId,
+      publicationId,
+      name: input.name ?? 'default',
+      tokenHash: hashToken(token),
+      createdByUserId: ctx.user.id,
+      expiresAt,
+      createdAt: now,
+    });
+
+    await this.audit.record({
+      organizationId: ctx.organizationId,
+      actorUserId: ctx.user.id,
+      action: 'publication_token.created',
+      resourceType: 'publication_token',
+      resourceId: id,
+      metadata: { publicationId, name: input.name ?? 'default' },
+    });
+
+    return {
+      id,
+      publicationId,
+      name: input.name ?? 'default',
+      token,
+      expiresAt,
+      createdAt: now,
+    };
+  }
+
+  async listPublicationTokens(ctx: RequestContext, publicationId: string) {
+    const rows = await this.db
+      .select()
+      .from(publicationTokens)
+      .where(
+        and(
+          eq(publicationTokens.organizationId, ctx.organizationId),
+          eq(publicationTokens.publicationId, publicationId),
+        ),
+      )
+      .orderBy(desc(publicationTokens.createdAt));
+
+    return rows.map((r) => ({
+      id: r.id,
+      publicationId: r.publicationId,
+      name: r.name,
+      expiresAt: r.expiresAt,
+      revokedAt: r.revokedAt,
+      lastUsedAt: r.lastUsedAt,
+      createdAt: r.createdAt,
+    }));
+  }
+
+  async revokePublicationToken(ctx: RequestContext, tokenId: string) {
+    const [row] = await this.db
+      .select()
+      .from(publicationTokens)
+      .where(
+        and(
+          eq(publicationTokens.id, tokenId),
+          eq(publicationTokens.organizationId, ctx.organizationId),
+          isNull(publicationTokens.revokedAt),
+        ),
+      )
+      .limit(1);
+    if (!row) throw new NotFoundException('Publication token not found');
+
+    const now = new Date();
+    await this.db
+      .update(publicationTokens)
+      .set({ revokedAt: now })
+      .where(eq(publicationTokens.id, tokenId));
+
+    await this.audit.record({
+      organizationId: ctx.organizationId,
+      actorUserId: ctx.user.id,
+      action: 'publication_token.revoked',
+      resourceType: 'publication_token',
+      resourceId: tokenId,
+      metadata: { publicationId: row.publicationId },
+    });
+
+    return { id: tokenId, revokedAt: now };
   }
 
   /** Backward-compatible one-shot create + publish used by earlier clients. */

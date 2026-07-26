@@ -8,6 +8,43 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: agentstudio
+          POSTGRES_PASSWORD: agentstudio
+          POSTGRES_DB: agentstudio
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agentstudio -d agentstudio"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://agentstudio:agentstudio@localhost:5432/agentstudio
+      REDIS_URL: redis://localhost:6379
+      BETTER_AUTH_SECRET: ci-better-auth-secret-at-least-32-chars!!
+      BETTER_AUTH_URL: http://localhost:4000
+      SECRETS_MASTER_KEY: ci-secrets-master-key-at-least-32-chars!!
+      RUNTIME_ALLOW_LOCAL: 'true'
+      DEFAULT_RUNTIME_PROVIDER: local
+      API_BASE_URL: http://localhost:4000
+      CONTROL_PLANE_ORIGIN: http://localhost:3000
+      AGENT_RUNTIME_ORIGIN: http://localhost:3001
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+      ALLOW_SELF_APPROVAL: 'false'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -19,6 +56,27 @@ jobs:
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
+      - name: Write .env for app scripts
+        run: |
+          {
+            echo 'NODE_ENV=development'
+            echo 'DATABASE_URL=postgresql://agentstudio:agentstudio@localhost:5432/agentstudio'
+            echo 'REDIS_URL=redis://localhost:6379'
+            echo 'BETTER_AUTH_SECRET=ci-better-auth-secret-at-least-32-chars!!'
+            echo 'BETTER_AUTH_URL=http://localhost:4000'
+            echo 'SECRETS_MASTER_KEY=ci-secrets-master-key-at-least-32-chars!!'
+            echo 'RUNTIME_ALLOW_LOCAL=true'
+            echo 'DEFAULT_RUNTIME_PROVIDER=local'
+            echo 'API_PORT=4000'
+            echo 'API_BASE_URL=http://localhost:4000'
+            echo 'CONTROL_PLANE_ORIGIN=http://localhost:3000'
+            echo 'AGENT_RUNTIME_ORIGIN=http://localhost:3001'
+            echo 'CORS_ORIGINS=http://localhost:3000,http://localhost:3001'
+            echo 'ALLOW_SELF_APPROVAL=false'
+            echo 'GATEWAY_RATE_LIMIT_PER_MINUTE=60'
+            echo 'GATEWAY_MAX_CONCURRENT_SESSIONS=20'
+            echo 'GATEWAY_SESSION_TIMEOUT_MS=900000'
+          } > .env
       - name: Lint
         run: pnpm lint
       - name: Typecheck
@@ -27,3 +85,28 @@ jobs:
         run: pnpm test
       - name: Build
         run: pnpm build
+      - name: Migrate + seed
+        run: |
+          pnpm db:migrate
+          pnpm db:seed
+      - name: Start API + worker
+        run: |
+          pnpm --filter @agent-studio/api start > /tmp/api.log 2>&1 &
+          pnpm --filter @agent-studio/worker start > /tmp/worker.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:4000/health >/dev/null; then
+              echo "API ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to become ready"
+          echo "---- api log ----"
+          cat /tmp/api.log || true
+          echo "---- worker log ----"
+          cat /tmp/worker.log || true
+          exit 1
+      - name: Smoke vertical slice
+        run: pnpm smoke
+      - name: Smoke enterprise hardening
+        run: pnpm smoke:enterprise

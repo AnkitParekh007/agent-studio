@@ -1,23 +1,4 @@
-const API = process.env.API_BASE_URL ?? 'http://localhost:4000';
-
-function getSetCookies(res) {
-  if (typeof res.headers.getSetCookie === 'function') return res.headers.getSetCookie();
-  const single = res.headers.get('set-cookie');
-  return single ? [single] : [];
-}
-
-function cookieHeader(cookies) {
-  return cookies.map((c) => c.split(';')[0]).join('; ');
-}
-
-async function json(res) {
-  const text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(`${res.status} ${text}`);
-  }
-}
+import { API, approveAsApprover, cookieHeader, getSetCookies, json } from './smoke-lib.mjs';
 
 async function main() {
   const signIn = await fetch(`${API}/api/auth/sign-in/email`, {
@@ -78,12 +59,7 @@ async function main() {
       body: '{}',
     }),
   );
-  const decide = await fetch(`${API}/api/approvals/${submitted.request.id}/decide`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ decision: 'approved' }),
-  });
-  if (!decide.ok) throw new Error(`approve failed: ${await decide.text()}`);
+  await approveAsApprover(submitted.request.id);
 
   let app = null;
   for (let i = 0; i < 20; i++) {

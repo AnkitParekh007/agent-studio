@@ -51,6 +51,16 @@ type PublicApp = {
 
 type ChatLine = { role: 'user' | 'assistant'; text: string };
 
+function readPublicationToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const fromQuery = new URLSearchParams(window.location.search).get('token');
+  if (fromQuery?.startsWith('pub_')) {
+    window.sessionStorage.setItem('publicationToken', fromQuery);
+    return fromQuery;
+  }
+  return window.sessionStorage.getItem('publicationToken');
+}
+
 export default function HostedAppPage() {
   const params = useParams<{ orgSlug: string; appSlug: string }>();
   const [app, setApp] = useState<PublicApp | null>(null);
@@ -59,8 +69,10 @@ export default function HostedAppPage() {
   const [lines, setLines] = useState<ChatLine[]>([]);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<'up' | 'down' | null>(null);
+  const [publicationToken, setPublicationToken] = useState<string | null>(null);
 
   useEffect(() => {
+    setPublicationToken(readPublicationToken());
     void fetch(`${API_BASE}/api/public/apps/${params.orgSlug}/${params.appSlug}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
@@ -94,12 +106,18 @@ export default function HostedAppPage() {
 
     try {
       const orgId = app.organization.id;
+      const token = publicationToken ?? readPublicationToken();
+      const authHeaders: Record<string, string> = {
+        'x-organization-id': orgId,
+      };
+      if (token) authHeaders['x-publication-token'] = token;
+
       const startRes = await fetch(`${API_BASE}/api/gateway/sessions`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'content-type': 'application/json',
-          'x-organization-id': orgId,
+          ...authHeaders,
         },
         body: JSON.stringify({ publicationId: app.publication.id, message: text }),
       });
@@ -109,7 +127,7 @@ export default function HostedAppPage() {
       const streamRes = await fetch(`${API_BASE}/api/gateway/sessions/${session.sessionId}/stream`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'x-organization-id': orgId },
+        headers: authHeaders,
       });
       if (!streamRes.ok || !streamRes.body) throw new Error(await streamRes.text());
 
@@ -276,6 +294,13 @@ export default function HostedAppPage() {
         </div>
 
         {error ? <p style={{ color: '#b91c1c' }}>{error}</p> : null}
+
+        {!publicationToken ? (
+          <p style={{ color: theme.muted, fontSize: 13, marginTop: 8 }}>
+            End-user chat needs a platform session or a publication token. Open this app with{' '}
+            <code>?token=pub_…</code> after minting a token in the control plane.
+          </p>
+        ) : null}
 
         {studio.featureFlags.userFeedback && lines.some((l) => l.role === 'assistant') ? (
           <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
