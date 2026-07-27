@@ -1,0 +1,195 @@
+# Production-like full stack. Do not use for day-to-day local development
+# (prefer docker-compose.yml + pnpm dev). See docs/operations/deployment.md.
+#
+#   cp .env.production.example .env.production
+#   # edit secrets + ANTHROPIC_API_KEY
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+#   pnpm smoke:deploy
+#
+# Optional demo users (never in real production):
+#   docker compose -f docker-compose.prod.yml --env-file .env.production --profile demo run --rm seed
+
+name: agent-studio-prod
+
+x-backend: &backend
+  image: agent-studio-prod-backend:latest
+  build:
+    context: .
+    dockerfile: deploy/Dockerfile
+    target: backend
+    args:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4000}
+  environment: &app_env
+    NODE_ENV: production
+    DATABASE_URL: postgresql://${POSTGRES_USER:-agentstudio}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentstudio}
+    REDIS_URL: redis://redis:6379
+    API_PORT: 4000
+    API_BASE_URL: ${API_BASE_URL:-http://localhost:4000}
+    BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:4000}
+    BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
+    SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY:?set SECRETS_MASTER_KEY}
+    CONTROL_PLANE_ORIGIN: ${CONTROL_PLANE_ORIGIN:-http://localhost:3000}
+    AGENT_RUNTIME_ORIGIN: ${AGENT_RUNTIME_ORIGIN:-http://localhost:3001}
+    EMBED_RUNTIME_ORIGIN: ${EMBED_RUNTIME_ORIGIN:-http://localhost:3002}
+    CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:3002}
+    RUNTIME_ALLOW_LOCAL: 'false'
+    DEFAULT_RUNTIME_PROVIDER: ${DEFAULT_RUNTIME_PROVIDER:-claude}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
+    ALLOW_SELF_APPROVAL: ${ALLOW_SELF_APPROVAL:-false}
+    GATEWAY_RATE_LIMIT_PER_MINUTE: ${GATEWAY_RATE_LIMIT_PER_MINUTE:-60}
+    GATEWAY_MAX_CONCURRENT_SESSIONS: ${GATEWAY_MAX_CONCURRENT_SESSIONS:-20}
+    GATEWAY_SESSION_TIMEOUT_MS: ${GATEWAY_SESSION_TIMEOUT_MS:-900000}
+    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+    OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-agent-studio-api}
+    NEXT_TELEMETRY_DISABLED: '1'
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agentstudio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}
+      POSTGRES_DB: ${POSTGRES_DB:-agentstudio}
+    volumes:
+      - agentstudio_prod_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend
+    command: ['node', 'packages/database/dist/migrate.js']
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-agentstudio}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentstudio}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    <<: *backend
+    command: ['node', 'apps/api/dist/main.js']
+    ports:
+      - '${API_HOST_PORT:-4000}:4000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  worker:
+    <<: *backend
+    command: ['node', 'apps/worker/dist/main.js']
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  control-plane-web:
+    <<: *backend
+    command:
+      [
+        'pnpm',
+        '--filter',
+        '@agent-studio/control-plane-web',
+        'exec',
+        'next',
+        'start',
+        '--port',
+        '3000',
+        '--hostname',
+        '0.0.0.0',
+      ]
+    ports:
+      - '${CONTROL_PLANE_HOST_PORT:-3000}:3000'
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  agent-web-runtime:
+    <<: *backend
+    command:
+      [
+        'pnpm',
+        '--filter',
+        '@agent-studio/agent-web-runtime',
+        'exec',
+        'next',
+        'start',
+        '--port',
+        '3001',
+        '--hostname',
+        '0.0.0.0',
+      ]
+    ports:
+      - '${AGENT_RUNTIME_HOST_PORT:-3001}:3001'
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  embed-runtime:
+    <<: *backend
+    command:
+      [
+        'pnpm',
+        '--filter',
+        '@agent-studio/embed-runtime',
+        'exec',
+        'next',
+        'start',
+        '--port',
+        '3002',
+        '--hostname',
+        '0.0.0.0',
+      ]
+    ports:
+      - '${EMBED_RUNTIME_HOST_PORT:-3002}:3002'
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  seed:
+    profiles: [demo]
+    <<: *backend
+    command: ['node', 'packages/database/dist/seed.js']
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-agentstudio}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentstudio}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: 'no'
+
+volumes:
+  agentstudio_prod_pg:

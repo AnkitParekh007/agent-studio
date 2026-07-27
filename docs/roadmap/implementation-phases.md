@@ -25,5 +25,6 @@ Status labels mean “vertical slice landed,” not enterprise-complete. See [ga
 | WS5 Audit read, timeouts, MCP honesty | Landed |
 | WS6 Hosted publication-token auth | Landed |
 | WS7 Correlation logs + `/metrics` | Landed |
+| WS8 Production Compose package | Landed (`docker-compose.prod.yml`, migrate/api/worker/web, `smoke:deploy`) |
 
 First vertical slice (create → approve → provision → publish → stream) remains the gating milestone before expanding surface area.

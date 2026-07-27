@@ -26,6 +26,9 @@
     "smoke:enterprise": "node scripts/smoke-enterprise-hardening.mjs",
     "smoke:integrations": "node scripts/smoke-integrations.mjs",
     "smoke:publish-channels": "node scripts/smoke-publish-channels.mjs",
+    "smoke:deploy": "node scripts/smoke-deploy.mjs",
+    "deploy:up": "docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build",
+    "deploy:down": "docker compose -f docker-compose.prod.yml --env-file .env.production down",
     "desktop:dev": "pnpm --filter @agent-studio/desktop-shell tauri:dev",
     "desktop:build": "pnpm --filter @agent-studio/desktop-shell tauri:build",
     "desktop:gen-updater-keys": "node scripts/generate-desktop-updater-keys.mjs"
