@@ -15,7 +15,7 @@ async function bootstrap() {
     otlpEndpoint: env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT || undefined,
   });
 
-  const adapter = new FastifyAdapter({ logger: true });
+  const adapter = new FastifyAdapter({ logger: true, trustProxy: true });
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter);
 
   const fastify = app.getHttpAdapter().getInstance();

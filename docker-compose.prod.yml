@@ -42,7 +42,16 @@ x-backend: &backend
     GATEWAY_SESSION_TIMEOUT_MS: ${GATEWAY_SESSION_TIMEOUT_MS:-900000}
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
     OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-agent-studio-api}
+    METRICS_BEARER_TOKEN: ${METRICS_BEARER_TOKEN:?set METRICS_BEARER_TOKEN}
+    DATA_RETENTION_DAYS: ${DATA_RETENTION_DAYS:-90}
     NEXT_TELEMETRY_DISABLED: '1'
+
+# Next.js services render untrusted end-user content and must never receive
+# SECRETS_MASTER_KEY, BETTER_AUTH_SECRET, ANTHROPIC_API_KEY, or DATABASE_URL.
+x-web-env: &web_env
+  NODE_ENV: production
+  NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4000}
+  NEXT_TELEMETRY_DISABLED: '1'
 
 services:
   postgres:
@@ -62,6 +71,9 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - agentstudio_prod_redis:/data
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -128,6 +140,7 @@ services:
         '--hostname',
         '0.0.0.0',
       ]
+    environment: *web_env
     ports:
       - '${CONTROL_PLANE_HOST_PORT:-3000}:3000'
     depends_on:
@@ -150,6 +163,7 @@ services:
         '--hostname',
         '0.0.0.0',
       ]
+    environment: *web_env
     ports:
       - '${AGENT_RUNTIME_HOST_PORT:-3001}:3001'
     depends_on:
@@ -172,6 +186,10 @@ services:
         '--hostname',
         '0.0.0.0',
       ]
+    environment:
+      <<: *web_env
+      # Server-side origin used by middleware to resolve embed frame-ancestors.
+      EMBED_API_BASE_URL: http://api:4000
     ports:
       - '${EMBED_RUNTIME_HOST_PORT:-3002}:3002'
     depends_on:
@@ -193,3 +211,4 @@ services:
 
 volumes:
   agentstudio_prod_pg:
+  agentstudio_prod_redis:

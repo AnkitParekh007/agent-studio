@@ -45,6 +45,8 @@ jobs:
       AGENT_RUNTIME_ORIGIN: http://localhost:3001
       CORS_ORIGINS: http://localhost:3000,http://localhost:3001
       ALLOW_SELF_APPROVAL: 'false'
+      METRICS_BEARER_TOKEN: ci-metrics-bearer-token
+      DATA_RETENTION_DAYS: '90'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -76,6 +78,8 @@ jobs:
             echo 'GATEWAY_RATE_LIMIT_PER_MINUTE=60'
             echo 'GATEWAY_MAX_CONCURRENT_SESSIONS=20'
             echo 'GATEWAY_SESSION_TIMEOUT_MS=900000'
+            echo 'METRICS_BEARER_TOKEN=ci-metrics-bearer-token'
+            echo 'DATA_RETENTION_DAYS=90'
           } > .env
       - name: Lint
         run: pnpm lint
@@ -110,3 +114,23 @@ jobs:
         run: pnpm smoke
       - name: Smoke enterprise hardening
         run: pnpm smoke:enterprise
+      - name: Smoke authz negatives
+        run: pnpm smoke:authz
+
+  production-env-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8.7.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build config package
+        run: pnpm --filter @agent-studio/config build
+      - name: Reject unsafe production env
+        run: node scripts/check-production-env.mjs

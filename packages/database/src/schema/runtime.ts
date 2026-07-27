@@ -67,6 +67,8 @@ export const publications = pgTable('publications', {
   deploymentId: text('deployment_id').references(() => agentDeployments.id),
   channel: text('channel').notNull().default('hosted_web'),
   status: text('status').notNull().default('active'),
+  /** JSON string array of allowed parent origins for embed framing + postMessage token delivery. Empty = deny. */
+  allowedOriginsJson: text('allowed_origins_json').notNull().default('[]'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

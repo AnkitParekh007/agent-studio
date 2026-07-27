@@ -1,3 +1,5 @@
+import { assertSafeOutboundUrl } from './safe-url.js';
+
 export type McpTool = {
   name: string;
   description?: string;
@@ -26,6 +28,8 @@ async function rpc<T>(
   method: string,
   params?: Record<string, unknown>,
 ): Promise<T> {
+  assertSafeOutboundUrl(options.endpointUrl, { requireHttps: true });
+
   const timeoutMs = options.timeoutMs ?? 10_000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -50,6 +54,7 @@ async function rpc<T>(
         params: params ?? {},
       }),
       signal: controller.signal,
+      redirect: 'error',
     });
 
     const text = await res.text();
@@ -57,7 +62,6 @@ async function rpc<T>(
       throw new Error(`MCP HTTP ${res.status}: ${text.slice(0, 300)}`);
     }
 
-    // Streamable HTTP may return SSE; extract first data JSON object when present.
     const jsonText = text.includes('data:')
       ? (text
           .split('\n')
@@ -85,7 +89,6 @@ export async function mcpInitialize(options: McpClientOptions): Promise<void> {
       version: '0.0.1',
     },
   });
-  // Best-effort notification; ignore failures on servers that don't require it.
   await rpc(options, 'notifications/initialized', {}).catch(() => undefined);
 }
 

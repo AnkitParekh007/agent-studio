@@ -9,7 +9,7 @@ export type EmbedPublicApp = {
     theme: Record<string, string>;
     starterPrompts: string[];
   };
-  publication: { id: string; channel: string };
+  publication: { id: string; channel: string; allowedOrigins: string[] };
 };
 
 export type EmbedClientOptions = {
@@ -109,19 +109,23 @@ export class AgentStudioEmbedClient {
   }
 }
 
-/** Browser helper: mount a minimal iframe pointing at the embed runtime. */
+export const EMBED_READY_MESSAGE = 'agent-studio:ready';
+export const EMBED_TOKEN_MESSAGE = 'agent-studio:token';
+
+/**
+ * Browser helper: mount a minimal iframe pointing at the embed runtime.
+ * Publication tokens are never placed in the URL; use `attachPublicationToken`.
+ */
 export function createEmbedIframe(input: {
   embedRuntimeOrigin: string;
   orgSlug: string;
   appSlug: string;
-  publicationToken?: string;
   title?: string;
 }): HTMLIFrameElement {
   const url = new URL(
     `/embed/${input.orgSlug}/${input.appSlug}`,
     input.embedRuntimeOrigin,
   );
-  if (input.publicationToken) url.searchParams.set('token', input.publicationToken);
   const iframe = document.createElement('iframe');
   iframe.src = url.toString();
   iframe.title = input.title ?? 'Agent Studio';
@@ -130,4 +134,27 @@ export function createEmbedIframe(input: {
   iframe.style.height = '100%';
   iframe.setAttribute('allow', 'clipboard-write');
   return iframe;
+}
+
+/**
+ * Deliver a publication token to an embed iframe over postMessage once it reports ready.
+ * Keeps the token out of URLs, referrers, and server logs. Returns a detach function.
+ */
+export function attachPublicationToken(
+  iframe: HTMLIFrameElement,
+  token: string,
+  embedOrigin: string,
+): () => void {
+  const targetOrigin = new URL(embedOrigin).origin;
+
+  const onMessage = (event: MessageEvent) => {
+    if (event.origin !== targetOrigin) return;
+    if (event.source !== iframe.contentWindow) return;
+    const data = event.data as { type?: unknown } | null;
+    if (!data || data.type !== EMBED_READY_MESSAGE) return;
+    iframe.contentWindow?.postMessage({ type: EMBED_TOKEN_MESSAGE, token }, targetOrigin);
+  };
+
+  window.addEventListener('message', onMessage);
+  return () => window.removeEventListener('message', onMessage);
 }

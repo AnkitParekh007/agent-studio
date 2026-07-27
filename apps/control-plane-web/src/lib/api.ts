@@ -148,12 +148,27 @@ export const client = {
     organizationId: string,
     applicationId: string,
     channel: 'hosted_web' | 'embed' | 'api' | 'desktop' = 'hosted_web',
+    allowedOrigins: string[] = [],
   ) {
     return api<Record<string, unknown>>(`/api/applications/${applicationId}/publish`, {
       method: 'POST',
       organizationId,
-      body: JSON.stringify({ channel }),
+      body: JSON.stringify({ channel, allowedOrigins }),
     });
+  },
+  setPublicationAllowedOrigins(
+    organizationId: string,
+    publicationId: string,
+    allowedOrigins: string[],
+  ) {
+    return api<{ publicationId: string; allowedOrigins: string[] }>(
+      `/api/publications/${publicationId}/allowed-origins`,
+      {
+        method: 'PATCH',
+        organizationId,
+        body: JSON.stringify({ allowedOrigins }),
+      },
+    );
   },
   unpublishApplication(
     organizationId: string,

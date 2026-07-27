@@ -46,18 +46,16 @@ type PublicApp = {
     starterPrompts: string[];
     studioConfig: StudioConfig;
   };
-  publication: { id: string };
+  publication: { id: string; allowedOrigins?: string[] };
 };
 
 type ChatLine = { role: 'user' | 'assistant'; text: string };
 
+const READY_MESSAGE = 'agent-studio:ready';
+const TOKEN_MESSAGE = 'agent-studio:token';
+
 function readPublicationToken(): string | null {
   if (typeof window === 'undefined') return null;
-  const fromQuery = new URLSearchParams(window.location.search).get('token');
-  if (fromQuery?.startsWith('pub_')) {
-    window.sessionStorage.setItem('publicationToken', fromQuery);
-    return fromQuery;
-  }
   return window.sessionStorage.getItem('publicationToken');
 }
 
@@ -81,6 +79,33 @@ export default function HostedAppPage() {
       .then(setApp)
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load app'));
   }, [params.orgSlug, params.appSlug]);
+
+  // When framed by an allowlisted host, accept a publication token over postMessage.
+  // Otherwise the platform session cookie authenticates the caller.
+  const allowedOrigins = useMemo(
+    () => app?.publication.allowedOrigins ?? [],
+    [app],
+  );
+
+  useEffect(() => {
+    if (allowedOrigins.length === 0 || window.parent === window) return;
+
+    const onMessage = (event: MessageEvent) => {
+      if (!allowedOrigins.includes(event.origin)) return;
+      if (event.source !== window.parent) return;
+      const data = event.data as { type?: unknown; token?: unknown } | null;
+      if (!data || data.type !== TOKEN_MESSAGE) return;
+      if (typeof data.token !== 'string' || !data.token.startsWith('pub_')) return;
+      window.sessionStorage.setItem('publicationToken', data.token);
+      setPublicationToken(data.token);
+    };
+
+    window.addEventListener('message', onMessage);
+    for (const origin of allowedOrigins) {
+      window.parent.postMessage({ type: READY_MESSAGE }, origin);
+    }
+    return () => window.removeEventListener('message', onMessage);
+  }, [allowedOrigins]);
 
   const studio = app?.application.studioConfig;
   const theme = useMemo(
@@ -297,8 +322,9 @@ export default function HostedAppPage() {
 
         {!publicationToken ? (
           <p style={{ color: theme.muted, fontSize: 13, marginTop: 8 }}>
-            End-user chat needs a platform session or a publication token. Open this app with{' '}
-            <code>?token=pub_…</code> after minting a token in the control plane.
+            End-user chat needs a platform session, or a publication token delivered by an
+            allowlisted host page over <code>postMessage</code>. Tokens are never accepted from the
+            URL.
           </p>
         ) : null}
 

@@ -44,7 +44,8 @@ export default function ApplicationDetailPage() {
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('draft');
   const [hostedPath, setHostedPath] = useState<string | null>(null);
-  const [channels, setChannels] = useState<Record<string, { publicationId?: string; url?: string | null; path?: string | null } | null>>({});
+  const [channels, setChannels] = useState<Record<string, { publicationId?: string; url?: string | null; path?: string | null; allowedOrigins?: string[] } | null>>({});
+  const [embedOriginsText, setEmbedOriginsText] = useState('');
   const [mintedToken, setMintedToken] = useState<string | null>(null);
   const [config, setConfig] = useState<StudioConfig | null>(null);
   const [starterText, setStarterText] = useState('');
@@ -58,7 +59,9 @@ export default function ApplicationDetailPage() {
     setDescription(String(app.description ?? ''));
     setStatus(String(app.status ?? 'draft'));
     setHostedPath((app.hostedPath as string | null) ?? null);
-    setChannels((app.channels as typeof channels) ?? {});
+    const nextChannels = (app.channels as typeof channels) ?? {};
+    setChannels(nextChannels);
+    setEmbedOriginsText((nextChannels.embed?.allowedOrigins ?? []).join('\n'));
     const studio = app.studioConfig as StudioConfig;
     setConfig(studio);
     setStarterText((studio.starterPrompts ?? []).join('\n'));
@@ -94,17 +97,47 @@ export default function ApplicationDetailPage() {
     }
   }
 
+  function parsedEmbedOrigins() {
+    return embedOriginsText
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
   async function publish(channel: 'hosted_web' | 'embed' | 'api' | 'desktop') {
     setError(null);
     setMintedToken(null);
     try {
-      const published = await client.publishApplication(orgId(), applicationId, channel);
+      const published = await client.publishApplication(
+        orgId(),
+        applicationId,
+        channel,
+        channel === 'embed' ? parsedEmbedOrigins() : [],
+      );
       setMessage(`Published on ${channel}`);
       setHostedPath((published.hostedPath as string | null) ?? null);
-      setChannels((published.channels as typeof channels) ?? {});
+      const nextChannels = (published.channels as typeof channels) ?? {};
+      setChannels(nextChannels);
+      setEmbedOriginsText((nextChannels.embed?.allowedOrigins ?? []).join('\n'));
       setStatus(String(published.status ?? 'published'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Publish failed');
+    }
+  }
+
+  async function saveEmbedOrigins() {
+    setError(null);
+    const pubId = channels.embed?.publicationId;
+    if (!pubId) {
+      setError('Publish the embed channel first');
+      return;
+    }
+    try {
+      await client.setPublicationAllowedOrigins(orgId(), pubId, parsedEmbedOrigins());
+      setMessage('Embed allowed origins updated');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Update failed');
     }
   }
 
@@ -330,6 +363,23 @@ export default function ApplicationDetailPage() {
               )}
             </div>
           ))}
+          <label>
+            Embed allowed origins (one per line, e.g. <code>https://intranet.example.com</code>)
+            <textarea
+              value={embedOriginsText}
+              onChange={(e) => setEmbedOriginsText(e.target.value)}
+              rows={3}
+              placeholder="https://intranet.example.com"
+            />
+          </label>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Empty means default deny: no site may frame the embed or receive a publication token.
+          </p>
+          <div className="row">
+            <Button variant="secondary" onClick={() => void saveEmbedOrigins()}>
+              Save embed origins
+            </Button>
+          </div>
           {mintedToken ? (
             <p className="success">
               Token (copy now): <code>{mintedToken}</code>

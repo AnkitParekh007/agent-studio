@@ -44,6 +44,7 @@ One application image (`deploy/Dockerfile` target `backend`) is reused with diff
    | `BETTER_AUTH_SECRET` | ≥ 32 characters |
    | `SECRETS_MASTER_KEY` | ≥ 32 characters |
    | `ANTHROPIC_API_KEY` | Required for Claude runtime (`DEFAULT_RUNTIME_PROVIDER=claude`) |
+   | `METRICS_BEARER_TOKEN` | Required in production; guards `/metrics` and `/api/metrics` |
    | `API_BASE_URL` / `NEXT_PUBLIC_API_BASE_URL` / `BETTER_AUTH_URL` | Public browser-reachable API origin |
    | `CONTROL_PLANE_ORIGIN` / `AGENT_RUNTIME_ORIGIN` / `EMBED_RUNTIME_ORIGIN` | Public web origins |
    | `CORS_ORIGINS` | Comma-separated allowlist matching those origins |
@@ -52,7 +53,13 @@ One application image (`deploy/Dockerfile` target `backend`) is reused with diff
 
    - `NODE_ENV=production`
    - `RUNTIME_ALLOW_LOCAL` must be false / unset
+   - `METRICS_BEARER_TOKEN` must be set
    - Never auto-seed (`seed` profile is opt-in and forces `NODE_ENV=development` for that one-shot only)
+
+   Verify the contract without booting the stack: `pnpm check:prod-env`.
+
+   Only `api`, `worker`, and `migrate` receive secrets. The three Next.js services get public URLs
+   only, so a template-injection bug in an end-user app cannot read `SECRETS_MASTER_KEY`.
 
 4. Build and start:
 
@@ -96,7 +103,12 @@ When changing the public API URL, rebuild so `NEXT_PUBLIC_API_BASE_URL` is baked
 
 - `GET /health` — liveness
 - `GET /ready` — DB connectivity
-- `GET /metrics` — Prometheus (also `/api/metrics`)
+- `GET /metrics` — Prometheus (also `/api/metrics`); send `Authorization: Bearer $METRICS_BEARER_TOKEN`
+
+## Backups
+
+See [backups.md](./backups.md). `pnpm backup:db` dumps Postgres; Redis persists on the
+`agentstudio_prod_redis` volume but is not part of the recovery contract.
 
 ## Migrations
 

@@ -85,9 +85,17 @@ export class ApplicationsController {
     @Body() body: unknown,
   ) {
     const input = z
-      .object({ channel: channelSchema.optional() })
+      .object({
+        channel: channelSchema.optional(),
+        allowedOrigins: z.array(z.string().min(1)).optional(),
+      })
       .parse(body ?? {});
-    return this.applications.publish(ctx, applicationId, input.channel ?? 'hosted_web');
+    return this.applications.publish(
+      ctx,
+      applicationId,
+      input.channel ?? 'hosted_web',
+      input.allowedOrigins ?? [],
+    );
   }
 
   @Post('api/applications/:applicationId/unpublish')
@@ -132,6 +140,24 @@ export class ApplicationsController {
       })
       .parse(body);
     return this.applications.createAndPublish(ctx, input);
+  }
+
+  @Patch('api/publications/:publicationId/allowed-origins')
+  @UseGuards(AuthGuard, PermissionsGuard)
+  @RequirePermissions('application:publish')
+  setAllowedOrigins(
+    @AuthCtx() ctx: RequestContext,
+    @Param('publicationId') publicationId: string,
+    @Body() body: unknown,
+  ) {
+    const input = z
+      .object({ allowedOrigins: z.array(z.string().min(1)) })
+      .parse(body ?? {});
+    return this.applications.setPublicationAllowedOrigins(
+      ctx,
+      publicationId,
+      input.allowedOrigins,
+    );
   }
 
   @Get('api/publications/:publicationId/tokens')

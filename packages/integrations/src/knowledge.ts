@@ -1,3 +1,5 @@
+import { assertSafeOutboundUrl } from './safe-url.js';
+
 export type KnowledgeFetchResult = {
   name: string;
   uri: string;
@@ -37,13 +39,15 @@ export async function fetchKnowledgeSource(input: {
     };
   }
 
-  if (!input.uri.startsWith('http://') && !input.uri.startsWith('https://')) {
+  try {
+    assertSafeOutboundUrl(input.uri);
+  } catch (err) {
     return {
       name: input.name,
       uri: input.uri,
       content: '',
       truncated: false,
-      error: 'Only http(s) and text: URIs are supported',
+      error: err instanceof Error ? err.message : 'URL not allowed',
     };
   }
 
@@ -52,6 +56,7 @@ export async function fetchKnowledgeSource(input: {
   try {
     const res = await fetch(input.uri, {
       signal: controller.signal,
+      redirect: 'error',
       headers: { accept: 'text/plain,text/markdown,text/html,application/json,*/*' },
     });
     if (!res.ok) {

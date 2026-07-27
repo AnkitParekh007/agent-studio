@@ -1,6 +1,10 @@
 'use client';
 
-import { AgentStudioEmbedClient } from '@agent-studio/embed-sdk';
+import {
+  AgentStudioEmbedClient,
+  EMBED_READY_MESSAGE,
+  EMBED_TOKEN_MESSAGE,
+} from '@agent-studio/embed-sdk';
 import { Button } from '@agent-studio/ui';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -8,16 +12,6 @@ import { useEffect, useMemo, useState } from 'react';
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
 
 type ChatLine = { role: 'user' | 'assistant'; text: string };
-
-function readToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  const fromQuery = new URLSearchParams(window.location.search).get('token');
-  if (fromQuery?.startsWith('pub_')) {
-    window.sessionStorage.setItem('publicationToken', fromQuery);
-    return fromQuery;
-  }
-  return window.sessionStorage.getItem('publicationToken');
-}
 
 export default function EmbedAppPage() {
   const params = useParams<{ orgSlug: string; appSlug: string }>();
@@ -31,14 +25,13 @@ export default function EmbedAppPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [allowedOrigins, setAllowedOrigins] = useState<string[]>([]);
 
   useEffect(() => {
-    const publicationToken = readToken();
-    setToken(publicationToken);
+    setToken(window.sessionStorage.getItem('publicationToken'));
     const bootstrap = new AgentStudioEmbedClient({
       apiBaseUrl: API_BASE,
       organizationId: 'pending',
-      publicationToken: publicationToken ?? undefined,
     });
     void bootstrap
       .fetchPublicApp(params.orgSlug, params.appSlug, 'embed')
@@ -48,9 +41,32 @@ export default function EmbedAppPage() {
         setTitle(app.application.name);
         setWelcome(app.application.welcomeMessage);
         setPrimary(app.application.theme.primaryColor ?? '#0F766E');
+        setAllowedOrigins(app.publication.allowedOrigins ?? []);
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load embed app'));
   }, [params.orgSlug, params.appSlug]);
+
+  // Token handshake: the host page posts the publication token only after we announce
+  // readiness, and only origins allowlisted on the publication are trusted.
+  useEffect(() => {
+    if (allowedOrigins.length === 0 || window.parent === window) return;
+
+    const onMessage = (event: MessageEvent) => {
+      if (!allowedOrigins.includes(event.origin)) return;
+      if (event.source !== window.parent) return;
+      const data = event.data as { type?: unknown; token?: unknown } | null;
+      if (!data || data.type !== EMBED_TOKEN_MESSAGE) return;
+      if (typeof data.token !== 'string' || !data.token.startsWith('pub_')) return;
+      window.sessionStorage.setItem('publicationToken', data.token);
+      setToken(data.token);
+    };
+
+    window.addEventListener('message', onMessage);
+    for (const origin of allowedOrigins) {
+      window.parent.postMessage({ type: EMBED_READY_MESSAGE }, origin);
+    }
+    return () => window.removeEventListener('message', onMessage);
+  }, [allowedOrigins]);
 
   const client = useMemo(() => {
     if (!orgId) return null;
@@ -132,7 +148,9 @@ export default function EmbedAppPage() {
         {error ? <p style={{ color: '#b91c1c' }}>{error}</p> : null}
         {!token ? (
           <p style={{ color: '#64748b', fontSize: 13 }}>
-            Pass <code>?token=pub_…</code> for end-user access without a platform login.
+            Waiting for the host page to deliver a publication token via{' '}
+            <code>attachPublicationToken()</code>. Add the host origin to the embed publication’s
+            allowed origins first.
           </p>
         ) : null}
       </div>
