@@ -22,10 +22,12 @@ import { tryCreateClaudeAdapter } from '@agent-studio/runtime-claude';
 import { LocalRuntimeAdapter } from '@agent-studio/runtime-local';
 import { Worker } from 'bullmq';
 import { and, eq, inArray } from 'drizzle-orm';
+import { scheduleRetentionPurge } from './retention-purge.js';
 
 async function main() {
   const env = loadEnv();
   const db = createDb(env.DATABASE_URL);
+  scheduleRetentionPurge(db, env.DATA_RETENTION_DAYS);
   const registry = new RuntimeProviderRegistry();
   registry.register(
     new LocalRuntimeAdapter({
@@ -215,7 +217,9 @@ async function main() {
     console.error(`Provision job ${job?.id} failed`, err);
   });
 
-  console.log('Agent Studio worker listening for provision jobs');
+  console.log(
+    `Agent Studio worker listening for provision jobs (retention purge every 24h, default ${env.DATA_RETENTION_DAYS}d)`,
+  );
 }
 
 main().catch((err) => {

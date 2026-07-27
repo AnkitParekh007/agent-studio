@@ -1,17 +1,20 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Inject, Module, type OnModuleDestroy } from '@nestjs/common';
 import { createAuth } from '@agent-studio/auth';
-import { corsOriginList, loadEnv } from '@agent-studio/config';
+import { corsOriginList, loadEnv, oidcConfig } from '@agent-studio/config';
 import { createDb } from '@agent-studio/database';
 import { RuntimeProviderRegistry } from '@agent-studio/runtime-core';
 import { tryCreateClaudeAdapter } from '@agent-studio/runtime-claude';
 import { LocalRuntimeAdapter } from '@agent-studio/runtime-local';
 import { Queue } from 'bullmq';
+import { Redis } from 'ioredis';
 import {
   AUTH,
   DB,
   ENV,
   PROVISION_QUEUE,
+  REDIS,
   RUNTIME_REGISTRY,
+  type Redis as RedisClient,
 } from './tokens.js';
 import { AuditService } from './audit.service.js';
 import { MetricsService } from './metrics.service.js';
@@ -37,7 +40,14 @@ import { MetricsService } from './metrics.service.js';
           secret: env.BETTER_AUTH_SECRET,
           baseURL: env.BETTER_AUTH_URL,
           trustedOrigins: corsOriginList(env),
+          oidc: oidcConfig(env),
         }),
+    },
+    {
+      provide: REDIS,
+      inject: [ENV],
+      useFactory: (env: ReturnType<typeof loadEnv>) =>
+        new Redis(env.REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 2 }),
     },
     {
       provide: RUNTIME_REGISTRY,
@@ -69,6 +79,12 @@ import { MetricsService } from './metrics.service.js';
     AuditService,
     MetricsService,
   ],
-  exports: [ENV, DB, AUTH, RUNTIME_REGISTRY, PROVISION_QUEUE, AuditService, MetricsService],
+  exports: [ENV, DB, AUTH, REDIS, RUNTIME_REGISTRY, PROVISION_QUEUE, AuditService, MetricsService],
 })
-export class CoreModule {}
+export class CoreModule implements OnModuleDestroy {
+  constructor(@Inject(REDIS) private readonly redis: RedisClient) {}
+
+  async onModuleDestroy() {
+    await this.redis.quit().catch(() => undefined);
+  }
+}
