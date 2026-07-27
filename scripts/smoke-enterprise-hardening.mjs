@@ -73,7 +73,10 @@ async function main() {
   if (!audit.ok) throw new Error(`audit list failed: ${JSON.stringify(events)}`);
   if (!Array.isArray(events)) throw new Error('audit list should be an array');
 
-  const metrics = await fetch(`${API}/metrics`);
+  const metricsToken = process.env.METRICS_BEARER_TOKEN;
+  const metrics = await fetch(`${API}/metrics`, {
+    headers: metricsToken ? { authorization: `Bearer ${metricsToken}` } : {},
+  });
   const metricsText = await metrics.text();
   if (!metrics.ok || !metricsText.includes('agent_studio_uptime_seconds')) {
     throw new Error(`metrics endpoint failed: ${metrics.status} ${metricsText}`);

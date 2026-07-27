@@ -52,6 +52,38 @@ function toAppRow(row: typeof applicationDefinitions.$inferSelect) {
   };
 }
 
+function parseAllowedOrigins(raw: string | null | undefined): string[] {
+  try {
+    const parsed = JSON.parse(raw || '[]');
+    return Array.isArray(parsed) ? parsed.filter((o): o is string => typeof o === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Origins must be scheme://host[:port] with no path, so CSP and postMessage checks stay exact. */
+function normalizeAllowedOrigins(origins: string[]): string[] {
+  const normalized = origins
+    .map((o) => o.trim())
+    .filter(Boolean)
+    .map((o) => {
+      let url: URL;
+      try {
+        url = new URL(o);
+      } catch {
+        throw new BadRequestException(`Invalid origin: ${o}`);
+      }
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        throw new BadRequestException(`Origin must be http(s): ${o}`);
+      }
+      if (url.origin.toLowerCase() !== o.toLowerCase().replace(/\/$/, '')) {
+        throw new BadRequestException(`Origin must not include a path or query: ${o}`);
+      }
+      return url.origin;
+    });
+  return [...new Set(normalized)];
+}
+
 @Injectable()
 export class ApplicationsService {
   constructor(
@@ -109,7 +141,10 @@ export class ApplicationsService {
 
     return {
       ...toAppRow(row),
-      publications: pubs,
+      publications: pubs.map((p) => ({
+        ...p,
+        allowedOrigins: parseAllowedOrigins(p.allowedOriginsJson),
+      })),
       channels: {
         hosted_web: activeByChannel('hosted_web')
           ? {
@@ -127,6 +162,7 @@ export class ApplicationsService {
               url: org
                 ? `${this.env.EMBED_RUNTIME_ORIGIN}/embed/${org.slug}/${row.slug}`
                 : null,
+              allowedOrigins: parseAllowedOrigins(activeByChannel('embed')!.allowedOriginsJson),
             }
           : null,
         api: activeByChannel('api')
@@ -255,6 +291,7 @@ export class ApplicationsService {
     ctx: RequestContext,
     applicationId: string,
     channelInput: string = 'hosted_web',
+    allowedOrigins: string[] = [],
   ) {
     if (!isPublicationChannel(channelInput)) {
       throw new BadRequestException(`Invalid publication channel: ${channelInput}`);
@@ -302,6 +339,8 @@ export class ApplicationsService {
       );
 
     const publicationId = newId('pub');
+    // Empty means default-deny: no parent origin may frame the embed or receive a token.
+    const origins = normalizeAllowedOrigins(allowedOrigins);
     await this.db.insert(publications).values({
       id: publicationId,
       organizationId: ctx.organizationId,
@@ -311,6 +350,7 @@ export class ApplicationsService {
       deploymentId: deployment.id,
       channel,
       status: 'active',
+      allowedOriginsJson: JSON.stringify(origins),
       createdAt: now,
       updatedAt: now,
     });
@@ -326,10 +366,45 @@ export class ApplicationsService {
       action: 'application.published',
       resourceType: 'publication',
       resourceId: publicationId,
-      metadata: { applicationId, slug: app.slug, channel },
+      metadata: { applicationId, slug: app.slug, channel, allowedOrigins: origins },
     });
 
     return this.get(ctx.organizationId, applicationId);
+  }
+
+  async setPublicationAllowedOrigins(
+    ctx: RequestContext,
+    publicationId: string,
+    origins: string[],
+  ) {
+    const [publication] = await this.db
+      .select()
+      .from(publications)
+      .where(
+        and(
+          eq(publications.id, publicationId),
+          eq(publications.organizationId, ctx.organizationId),
+        ),
+      )
+      .limit(1);
+    if (!publication) throw new NotFoundException('Publication not found');
+
+    const allowedOrigins = normalizeAllowedOrigins(origins);
+    await this.db
+      .update(publications)
+      .set({ allowedOriginsJson: JSON.stringify(allowedOrigins), updatedAt: new Date() })
+      .where(eq(publications.id, publicationId));
+
+    await this.audit.record({
+      organizationId: ctx.organizationId,
+      actorUserId: ctx.user.id,
+      action: 'publication.allowed_origins_updated',
+      resourceType: 'publication',
+      resourceId: publicationId,
+      metadata: { allowedOrigins },
+    });
+
+    return { publicationId, allowedOrigins };
   }
 
   async unpublish(
@@ -421,6 +496,7 @@ export class ApplicationsService {
       deploymentId: target.deploymentId,
       channel: target.channel,
       status: 'active',
+      allowedOriginsJson: JSON.stringify(target.allowedOrigins),
       createdAt: now,
       updatedAt: now,
     });
@@ -635,6 +711,7 @@ export class ApplicationsService {
         agentId: publication.agentId,
         versionId: publication.versionId,
         channel: publication.channel,
+        allowedOrigins: parseAllowedOrigins(publication.allowedOriginsJson),
       },
     };
   }

@@ -26,6 +26,9 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - name: Reject placeholder updater key
+        working-directory: .
+        run: node scripts/check-desktop-updater-key.mjs
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Install dependencies

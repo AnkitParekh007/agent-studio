@@ -148,3 +148,6 @@ vite.config.ts.timestamp-*
 # Local secrets (updater private keys, signing material)
 .secrets/
 
+# Database dumps from scripts/backup-postgres.mjs
+backups/
+

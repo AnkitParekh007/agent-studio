@@ -6,6 +6,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  type OnModuleDestroy,
 } from '@nestjs/common';
 import { corsOriginList } from '@agent-studio/config';
 import {
@@ -27,6 +28,7 @@ import {
 import type { AgentRuntimeEvent } from '@agent-studio/runtime-core';
 import { and, eq, gte, sql } from 'drizzle-orm';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { Redis } from 'ioredis';
 import { AgentsService } from '../agents/agents.service.js';
 import type { RequestContext } from '../auth/auth.types.js';
 import { AuditService } from '../core/audit.service.js';
@@ -36,8 +38,8 @@ import { getTracer } from '../core/otel.js';
 import { DB, ENV, RUNTIME_REGISTRY, type Db, type Env, type Registry } from '../core/tokens.js';
 
 @Injectable()
-export class GatewayService {
-  private readonly rateBuckets = new Map<string, number[]>();
+export class GatewayService implements OnModuleDestroy {
+  private readonly redis: Redis;
 
   constructor(
     @Inject(DB) private readonly db: Db,
@@ -46,7 +48,16 @@ export class GatewayService {
     @Inject(AgentsService) private readonly agents: AgentsService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(MetricsService) private readonly metrics: MetricsService,
-  ) {}
+  ) {
+    this.redis = new Redis(this.env.REDIS_URL, {
+      lazyConnect: true,
+      maxRetriesPerRequest: 2,
+    });
+  }
+
+  async onModuleDestroy() {
+    await this.redis.quit().catch(() => undefined);
+  }
 
   async startSession(
     ctx: RequestContext,
@@ -72,7 +83,7 @@ export class GatewayService {
     ctx: RequestContext,
     input: { publicationId: string; message?: string },
   ) {
-    this.enforceRateLimit(ctx.organizationId);
+    await this.enforceRateLimit(ctx.organizationId);
     await this.enforceConcurrentSessions(ctx.organizationId);
     await this.enforceOrgMonthlySpend(ctx.organizationId);
 
@@ -167,8 +178,8 @@ export class GatewayService {
   }
 
   async submitInput(ctx: RequestContext, sessionId: string, text: string) {
-    this.enforceRateLimit(ctx.organizationId);
-    const session = await this.getSession(ctx.organizationId, sessionId);
+    await this.enforceRateLimit(ctx.organizationId);
+    const session = await this.getAuthorizedSession(ctx, sessionId);
     this.assertSessionNotTimedOut(session.createdAt);
     if (!session.providerSessionId) throw new BadRequestException('Session missing provider id');
     const adapter = this.registry.get(session.runtimeProvider as 'local' | 'claude');
@@ -180,7 +191,7 @@ export class GatewayService {
   }
 
   async cancel(ctx: RequestContext, sessionId: string) {
-    const session = await this.getSession(ctx.organizationId, sessionId);
+    const session = await this.getAuthorizedSession(ctx, sessionId);
     if (!session.providerSessionId) throw new BadRequestException('Session missing provider id');
     const adapter = this.registry.get(session.runtimeProvider as 'local' | 'claude');
     await adapter.cancelSession(session.providerSessionId);
@@ -246,7 +257,7 @@ export class GatewayService {
   }
 
   private async *iterateSessionEvents(ctx: RequestContext, sessionId: string) {
-    const session = await this.getSession(ctx.organizationId, sessionId);
+    const session = await this.getAuthorizedSession(ctx, sessionId);
     this.assertSessionNotTimedOut(session.createdAt);
     if (!session.providerSessionId) throw new BadRequestException('Session missing provider id');
     const adapter = this.registry.get(session.runtimeProvider as 'local' | 'claude');
@@ -288,21 +299,23 @@ export class GatewayService {
     }
   }
 
-  private enforceRateLimit(organizationId: string) {
-    const now = Date.now();
+  /** Fixed-window counter shared across API replicas via Redis. */
+  private async enforceRateLimit(organizationId: string) {
     const windowMs = 60_000;
     const limit = this.env.GATEWAY_RATE_LIMIT_PER_MINUTE;
-    const prev = this.rateBuckets.get(organizationId) ?? [];
-    const recent = prev.filter((t) => now - t < windowMs);
-    if (recent.length >= limit) {
+    const window = Math.floor(Date.now() / windowMs);
+    const key = `gateway:ratelimit:${organizationId}:${window}`;
+
+    const count = await this.redis.incr(key);
+    if (count === 1) await this.redis.pexpire(key, windowMs * 2);
+
+    if (count > limit) {
       this.metrics.increment('gateway_rate_limited');
       throw new HttpException(
         `Gateway rate limit exceeded (${limit} requests/minute)`,
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
-    recent.push(now);
-    this.rateBuckets.set(organizationId, recent);
   }
 
   private async enforceConcurrentSessions(organizationId: string) {
@@ -458,6 +471,18 @@ export class GatewayService {
         estimatedCostUsd: Number(r.estimatedCostUsd ?? 0),
       })),
     );
+  }
+
+  private async getAuthorizedSession(ctx: RequestContext, sessionId: string) {
+    const session = await this.getSession(ctx.organizationId, sessionId);
+    if (
+      ctx.authMode === 'publication_token' &&
+      ctx.publicationId &&
+      session.publicationId !== ctx.publicationId
+    ) {
+      throw new ForbiddenException('Publication token is not valid for this session');
+    }
+    return session;
   }
 
   private async getSession(organizationId: string, sessionId: string) {

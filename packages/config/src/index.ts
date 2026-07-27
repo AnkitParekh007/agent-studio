@@ -31,6 +31,10 @@ const envSchema = z.object({
   /** OTLP HTTP traces endpoint, e.g. http://localhost:4318/v1/traces */
   OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: z.string().optional().default(''),
   OTEL_SERVICE_NAME: z.string().default('agent-studio-api'),
+  /** Bearer token required for /metrics and /api/metrics. Required when NODE_ENV=production. */
+  METRICS_BEARER_TOKEN: z.string().optional().default(''),
+  /** Default retention window (days) when org setting is unset. */
+  DATA_RETENTION_DAYS: z.coerce.number().int().positive().default(90),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
@@ -45,6 +49,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
   const env = parsed.data;
   if (env.NODE_ENV === 'production' && env.RUNTIME_ALLOW_LOCAL) {
     throw new Error('RUNTIME_ALLOW_LOCAL cannot be true when NODE_ENV=production');
+  }
+  if (env.NODE_ENV === 'production' && !env.METRICS_BEARER_TOKEN) {
+    throw new Error('METRICS_BEARER_TOKEN is required when NODE_ENV=production');
   }
   return env;
 }

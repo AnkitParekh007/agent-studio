@@ -1,4 +1,4 @@
-import { Body, Controller, Inject, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Inject, Param, Post, UseGuards } from '@nestjs/common';
 import { mcpServers } from '@agent-studio/database';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -33,8 +33,11 @@ export class IntegrationsController {
   }
 
   @Post('mcp/call')
-  @RequirePermissions('session:start')
+  @RequirePermissions('governance:manage')
   async call(@AuthCtx() ctx: RequestContext, @Body() body: unknown) {
+    if (ctx.authMode === 'publication_token') {
+      throw new ForbiddenException('Publication tokens cannot invoke MCP tools directly');
+    }
     const input = z
       .object({
         tool: z.string().min(1),

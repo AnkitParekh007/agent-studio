@@ -9,6 +9,7 @@ export const organizationSettings = pgTable('organization_settings', {
     .references(() => organizations.id, { onDelete: 'cascade' }),
   maxUsdMonthly: text('max_usd_monthly'),
   maxConcurrentSessions: integer('max_concurrent_sessions'),
+  retentionDays: integer('retention_days').default(90),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

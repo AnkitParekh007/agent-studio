@@ -18,9 +18,9 @@ import {
   type ValidationResult,
 } from '@agent-studio/runtime-core';
 import { createFetchClaudeHttpClient, type ClaudeHttpClient } from './http.js';
-import { normalizeClaudeEvent } from './normalize.js';
+import { estimateCostUsd, normalizeClaudeEvent } from './normalize.js';
 
-export { createFetchClaudeHttpClient, normalizeClaudeEvent };
+export { createFetchClaudeHttpClient, normalizeClaudeEvent, estimateCostUsd };
 export type { ClaudeHttpClient };
 
 /**
@@ -172,9 +172,37 @@ export class ClaudeRuntimeAdapter implements AgentRuntimeAdapter {
     const body = res.body as { data?: Record<string, unknown>[] } | Record<string, unknown>[];
     const events = Array.isArray(body) ? body : (body.data ?? []);
     let sequence = input.afterSequence ?? 0;
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let toolCallCount = 0;
+    let emittedUsage = false;
     for (const raw of events) {
       sequence += 1;
-      yield normalizeClaudeEvent(raw, sequence);
+      const event = normalizeClaudeEvent(raw, sequence);
+      if (event.type === 'usage') {
+        inputTokens += Number(event.payload.inputTokens ?? 0);
+        outputTokens += Number(event.payload.outputTokens ?? 0);
+        toolCallCount += Number(event.payload.toolCallCount ?? 0);
+        emittedUsage = true;
+      }
+      if (event.type === 'tool.started') toolCallCount += 1;
+      yield event;
+    }
+    if (!emittedUsage && (inputTokens > 0 || outputTokens > 0 || toolCallCount > 0)) {
+      sequence += 1;
+      yield {
+        id: randomUUID(),
+        type: 'usage',
+        sequence,
+        timestamp: new Date().toISOString(),
+        payload: {
+          inputTokens,
+          outputTokens,
+          toolCallCount,
+          estimatedCostUsd: estimateCostUsd(inputTokens, outputTokens),
+          estimated: true,
+        },
+      };
     }
   }
 
@@ -205,6 +233,7 @@ export class ClaudeRuntimeAdapter implements AgentRuntimeAdapter {
   }
 
   async getUsage(_input: RuntimeUsageInput): Promise<RuntimeUsage> {
+    // Prefer usage events persisted by the gateway from normalizeClaudeEvent estimates.
     return { inputTokens: 0, outputTokens: 0, toolCallCount: 0, estimatedCostUsd: 0 };
   }
 

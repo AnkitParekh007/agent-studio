@@ -236,12 +236,17 @@ export class OrgsService {
       organizationId,
       maxUsdMonthly: row?.maxUsdMonthly ?? null,
       maxConcurrentSessions: row?.maxConcurrentSessions ?? null,
+      retentionDays: row?.retentionDays ?? null,
     };
   }
 
   async upsertSettings(
     ctx: RequestContext,
-    input: { maxUsdMonthly?: string | null; maxConcurrentSessions?: number | null },
+    input: {
+      maxUsdMonthly?: string | null;
+      maxConcurrentSessions?: number | null;
+      retentionDays?: number | null;
+    },
   ) {
     const now = new Date();
     const [existing] = await this.db
@@ -260,6 +265,8 @@ export class OrgsService {
             input.maxConcurrentSessions === undefined
               ? existing.maxConcurrentSessions
               : input.maxConcurrentSessions,
+          retentionDays:
+            input.retentionDays === undefined ? existing.retentionDays : input.retentionDays,
           updatedAt: now,
         })
         .where(eq(organizationSettings.organizationId, ctx.organizationId));
@@ -268,6 +275,7 @@ export class OrgsService {
         organizationId: ctx.organizationId,
         maxUsdMonthly: input.maxUsdMonthly ?? null,
         maxConcurrentSessions: input.maxConcurrentSessions ?? null,
+        retentionDays: input.retentionDays ?? null,
         updatedAt: now,
       });
     }

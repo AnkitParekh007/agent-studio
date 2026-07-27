@@ -12,14 +12,27 @@ Tauri 2 Windows shell: `apps/desktop-shell`.
 ## Generate updater keys (once)
 
 ```bash
-node scripts/generate-desktop-updater-keys.mjs
+node scripts/generate-desktop-updater-keys.mjs --write
 ```
 
-1. Copy the printed **public** key into `apps/desktop-shell/src-tauri/tauri.conf.json` → `plugins.updater.pubkey`.
-2. Store the private key contents in GitHub Actions secret `TAURI_SIGNING_PRIVATE_KEY` (optional password: `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`).
-3. Point `plugins.updater.endpoints` at your CDN that serves Tauri update JSON + signed artifacts.
+`--write` injects the generated public key straight into
+`apps/desktop-shell/src-tauri/tauri.conf.json` → `plugins.updater.pubkey`. Without it, copy the
+printed key in by hand.
 
-Private keys live under `.secrets/` (gitignored).
+1. Store the private key contents in GitHub Actions secret `TAURI_SIGNING_PRIVATE_KEY` (optional password: `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`).
+2. Point `plugins.updater.endpoints` at your CDN that serves Tauri update JSON + signed artifacts.
+
+Private keys live under `.secrets/` (gitignored) and must never be committed.
+
+The repo ships with a **placeholder** pubkey so `pnpm desktop:dev` works. Releases must fail if it
+is still in place:
+
+```bash
+pnpm desktop:check-updater-key
+```
+
+This exits non-zero while `plugins.updater.pubkey` decodes to the `DEV=ONLY` placeholder. Wire it
+into the release workflow before `pnpm desktop:build`.
 
 ## Authenticode
 

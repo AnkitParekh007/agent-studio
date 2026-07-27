@@ -1,16 +1,18 @@
 /**
  * Generates a Tauri updater keypair into .secrets/ (gitignored).
- * Prints the public key to paste into apps/desktop-shell/src-tauri/tauri.conf.json.
+ * Prints the public key, and with --write injects it into tauri.conf.json.
  *
- * Usage: node scripts/generate-desktop-updater-keys.mjs
+ * Usage: node scripts/generate-desktop-updater-keys.mjs [--write]
  */
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, existsSync, readFileSync } from 'node:fs';
+import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
 const secretsDir = path.join(root, '.secrets');
 const keyPath = path.join(secretsDir, 'desktop-updater.key');
+const confPath = path.join(root, 'apps/desktop-shell/src-tauri/tauri.conf.json');
+const writeConf = process.argv.includes('--write');
 
 mkdirSync(secretsDir, { recursive: true });
 
@@ -44,6 +46,15 @@ if (existsSync(pubPath)) {
   console.log('\nPublic key (set plugins.updater.pubkey in tauri.conf.json):\n');
   console.log(pubkey);
   console.log('\nPrivate key path (CI secret TAURI_SIGNING_PRIVATE_KEY):\n', keyPath);
+
+  if (writeConf) {
+    const conf = JSON.parse(readFileSync(confPath, 'utf8'));
+    conf.plugins ??= {};
+    conf.plugins.updater ??= {};
+    conf.plugins.updater.pubkey = pubkey;
+    writeFileSync(confPath, `${JSON.stringify(conf, null, 2)}\n`);
+    console.log('\nWrote pubkey into', confPath);
+  }
 } else {
   console.log('Expected public key at', pubPath);
 }

@@ -22,6 +22,7 @@ import { RequirePermissions } from '../auth/permissions.decorator.js';
 import { PermissionsGuard } from '../auth/permissions.guard.js';
 import { AUTH, DB, type Auth, type Db } from '../core/tokens.js';
 import { OrgsService } from './orgs.service.js';
+import { RetentionService } from './retention.service.js';
 
 @Controller('api/orgs')
 export class OrgsController {
@@ -29,6 +30,7 @@ export class OrgsController {
     @Inject(DB) private readonly db: Db,
     @Inject(AUTH) private readonly auth: Auth,
     @Inject(OrgsService) private readonly orgs: OrgsService,
+    @Inject(RetentionService) private readonly retention: RetentionService,
   ) {}
 
   @Get('for-me')
@@ -131,8 +133,23 @@ export class OrgsController {
       .object({
         maxUsdMonthly: z.string().nullable().optional(),
         maxConcurrentSessions: z.number().int().positive().nullable().optional(),
+        retentionDays: z.number().int().positive().max(3650).nullable().optional(),
       })
       .parse(body);
     return this.orgs.upsertSettings(ctx, input);
+  }
+
+  @Post('current/retention/purge')
+  @UseGuards(AuthGuard, PermissionsGuard)
+  @RequirePermissions('org:manage')
+  purgeRetention(@AuthCtx() ctx: RequestContext) {
+    return this.retention.purge(ctx);
+  }
+
+  @Get('current/export')
+  @UseGuards(AuthGuard, PermissionsGuard)
+  @RequirePermissions('org:manage')
+  exportOrg(@AuthCtx() ctx: RequestContext) {
+    return this.retention.exportOrganization(ctx);
   }
 }
