@@ -21,8 +21,10 @@ Living inventory. “Landed” means code exists in-repo; it does **not** imply 
 
 ## Production follow-ups
 
+- Production Compose package landed (`docker-compose.prod.yml` + `deploy/Dockerfile` backend image + `pnpm smoke:deploy`)
 - Run `pnpm desktop:gen-updater-keys` and paste pubkey + set `TAURI_SIGNING_PRIVATE_KEY` / CDN endpoints
 - Provide `WINDOWS_CERT_*` secrets for Authenticode in `desktop-release` workflow
 - Apple notarization when macOS target is added
 - Claude-native MCP transport if/when Managed Agents exposes it
 - Broader OTel auto-instrumentation (DB/Redis) beyond request spans
+- Hosted/K8s charts beyond Compose (when operators need them)

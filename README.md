@@ -54,6 +54,19 @@ Default seed users (development only):
 
 See [`docs/`](docs/) for product vision, architecture, security, local setup, testing, deployment, and roadmap.
 
+## Production package
+
+Full-stack containers (API, worker, Postgres, Redis, control plane, hosted + embed runtimes):
+
+```bash
+cp .env.production.example .env.production
+# set POSTGRES_PASSWORD, BETTER_AUTH_SECRET, SECRETS_MASTER_KEY, ANTHROPIC_API_KEY
+pnpm deploy:up
+pnpm smoke:deploy
+```
+
+See [`docs/operations/deployment.md`](docs/operations/deployment.md).
+
 ## Scripts
 
 | Command | Description |
@@ -63,4 +76,5 @@ See [`docs/`](docs/) for product vision, architecture, security, local setup, te
 | `pnpm db:migrate` | Apply SQL migrations |
 | `pnpm db:seed` | Load development seed data (refuses in production) |
 | `pnpm smoke` / `smoke:playground` / `smoke:application-studio` / `smoke:desktop` / `smoke:governance` | API smokes (stack must be running) |
+| `pnpm deploy:up` / `deploy:down` / `smoke:deploy` | Production Compose stack |
 | `pnpm desktop:dev` | Run Tauri desktop shell (requires Rust toolchain) |
