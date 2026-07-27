@@ -15,7 +15,8 @@ async function bootstrap() {
     otlpEndpoint: env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT || undefined,
   });
 
-  const adapter = new FastifyAdapter({ logger: true, trustProxy: true });
+  // Client IP drives auth rate limiting and lockout, so only trust the hops we actually run behind.
+  const adapter = new FastifyAdapter({ logger: true, trustProxy: env.TRUST_PROXY_HOPS });
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter);
 
   const fastify = app.getHttpAdapter().getInstance();
@@ -51,6 +52,9 @@ async function bootstrap() {
     origin: corsOriginList(env),
     credentials: true,
   });
+
+  // Lets container SIGTERM close the shared Redis connection instead of dropping it.
+  app.enableShutdownHooks();
 
   await app.listen(env.API_PORT, '0.0.0.0');
   logInfo('api_listening', {

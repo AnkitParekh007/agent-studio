@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Inject,
   Injectable,
   UnauthorizedException,
@@ -8,8 +9,16 @@ import {
 import { memberships, publicationTokens } from '@agent-studio/database';
 import { and, eq, isNull } from 'drizzle-orm';
 import { hashToken, type RoleKey } from '@agent-studio/domain';
-import { AUTH, DB, type Auth, type Db } from '../core/tokens.js';
+import { AUTH, DB, ENV, type Auth, type Db, type Env } from '../core/tokens.js';
 import type { RequestContext } from './auth.types.js';
+
+/** Roles that can change governance outcomes, and therefore need MFA when the gate is on. */
+const MFA_REQUIRED_ROLES: ReadonlySet<RoleKey> = new Set([
+  'platform_admin',
+  'org_owner',
+  'org_admin',
+  'agent_approver',
+]);
 
 function extractPublicationToken(headers: Record<string, string | string[] | undefined>): string | undefined {
   const dedicated =
@@ -27,6 +36,7 @@ export class AuthGuard implements CanActivate {
   constructor(
     @Inject(AUTH) private readonly auth: Auth,
     @Inject(DB) private readonly db: Db,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -108,6 +118,17 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Not a member of this organization');
     }
 
+    const roleKey = membership.roleKey as RoleKey;
+    if (
+      this.env.REQUIRE_MFA_FOR_PRIVILEGED &&
+      MFA_REQUIRED_ROLES.has(roleKey) &&
+      !session.user.twoFactorEnabled
+    ) {
+      throw new ForbiddenException(
+        `Multi-factor authentication is required for the ${roleKey} role. Enroll at /api/auth/two-factor/enable.`,
+      );
+    }
+
     req.authContext = {
       user: {
         id: session.user.id,
@@ -115,7 +136,7 @@ export class AuthGuard implements CanActivate {
         name: session.user.name,
       },
       organizationId,
-      roleKey: membership.roleKey as RoleKey,
+      roleKey,
       authMode: 'session',
     };
     return true;

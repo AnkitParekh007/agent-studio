@@ -1,4 +1,4 @@
-import { boolean, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
@@ -6,6 +6,7 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
+  twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -39,6 +40,22 @@ export const accounts = pgTable('accounts', {
   password: text('password'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Better Auth `twoFactor` plugin model. Property names must match the plugin field
+ * keys exactly; `secret` and `backupCodes` hold provider-encrypted material only.
+ */
+export const twoFactors = pgTable('two_factors', {
+  id: text('id').primaryKey(),
+  secret: text('secret').notNull(),
+  backupCodes: text('backup_codes').notNull(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  verified: boolean('verified').notNull().default(true),
+  failedVerificationCount: integer('failed_verification_count').notNull().default(0),
+  lockedUntil: timestamp('locked_until', { withTimezone: true }),
 });
 
 export const verifications = pgTable('verifications', {

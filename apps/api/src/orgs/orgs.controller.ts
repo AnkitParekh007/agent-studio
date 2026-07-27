@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Param,
@@ -151,5 +152,14 @@ export class OrgsController {
   @RequirePermissions('org:manage')
   exportOrg(@AuthCtx() ctx: RequestContext) {
     return this.retention.exportOrganization(ctx);
+  }
+
+  /** Irreversible tenant erasure. Export first — cascades remove all org-scoped data. */
+  @Delete('current')
+  @UseGuards(AuthGuard, PermissionsGuard)
+  @RequirePermissions('org:manage')
+  eraseOrg(@AuthCtx() ctx: RequestContext, @Body() body: unknown) {
+    const input = z.object({ confirmSlug: z.string().min(1) }).parse(body);
+    return this.retention.eraseOrganization(ctx, input.confirmSlug);
   }
 }

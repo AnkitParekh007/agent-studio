@@ -2,7 +2,14 @@
  * Negative authorization smoke: every assertion here expects a denial.
  * Run against a seeded stack after `pnpm smoke`.
  */
-import { API, cookieHeader, json, orgHeaders, signIn } from './smoke-lib.mjs';
+import {
+  API,
+  cookieHeader,
+  ensureActivePublication,
+  json,
+  orgHeaders,
+  signIn,
+} from './smoke-lib.mjs';
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -26,47 +33,29 @@ async function main() {
     `cross-org access should be denied, got ${crossOrg.status}`,
   );
 
-  // 2. Metrics require the bearer token whenever one is configured.
+  // 2. Metrics always require the bearer token. An unset token is a misconfigured stack,
+  //    not a reason to skip the assertion.
   const metricsToken = process.env.METRICS_BEARER_TOKEN;
-  if (metricsToken) {
-    const anon = await fetch(`${API}/metrics`);
-    assert(anon.status === 401, `/metrics without bearer should be 401, got ${anon.status}`);
+  assert(
+    Boolean(metricsToken),
+    'METRICS_BEARER_TOKEN must be set for the authz smoke; /metrics auth cannot be verified without it',
+  );
 
-    const wrong = await fetch(`${API}/metrics`, {
-      headers: { authorization: 'Bearer not-the-token' },
-    });
-    assert(wrong.status === 401, `/metrics with wrong bearer should be 401, got ${wrong.status}`);
+  const anon = await fetch(`${API}/metrics`);
+  assert(anon.status === 401, `/metrics without bearer should be 401, got ${anon.status}`);
 
-    const ok = await fetch(`${API}/metrics`, {
-      headers: { authorization: `Bearer ${metricsToken}` },
-    });
-    assert(ok.ok, `/metrics with bearer should succeed, got ${ok.status}`);
-  } else {
-    console.log('METRICS_BEARER_TOKEN unset; skipped metrics auth assertions');
-  }
+  const wrong = await fetch(`${API}/metrics`, {
+    headers: { authorization: 'Bearer not-the-token' },
+  });
+  assert(wrong.status === 401, `/metrics with wrong bearer should be 401, got ${wrong.status}`);
 
-  // Locate an application that already has an active publication.
-  const appsRes = await fetch(`${API}/api/applications`, { headers });
-  const apps = await json(appsRes);
-  assert(appsRes.ok, `apps list failed: ${JSON.stringify(apps)}`);
+  const okMetrics = await fetch(`${API}/metrics`, {
+    headers: { authorization: `Bearer ${metricsToken}` },
+  });
+  assert(okMetrics.ok, `/metrics with bearer should succeed, got ${okMetrics.status}`);
 
-  let application = null;
-  for (const app of apps) {
-    const detailRes = await fetch(`${API}/api/applications/${app.id}`, { headers });
-    const detail = await json(detailRes);
-    if (detail.publications?.some((p) => p.status === 'active')) {
-      application = detail;
-      break;
-    }
-  }
-
-  if (!application) {
-    console.log('No active publication found; skipped publication-token assertions');
-    console.log('Authz negative smoke OK');
-    return;
-  }
-
-  const primary = application.publications.find((p) => p.status === 'active');
+  // Publication-token assertions need a published app; create the fixture if none exists.
+  const { application, publication: primary } = await ensureActivePublication(headers);
 
   const tokenRes = await fetch(`${API}/api/publications/${primary.id}/tokens`, {
     method: 'POST',
@@ -120,22 +109,41 @@ async function main() {
   );
 
   // 5. Embed publications default to deny (no allowed origins until set explicitly).
-  const embedPublicationId =
-    otherChannel === 'embed' ? otherPublicationId : application.channels?.embed?.publicationId;
-  if (embedPublicationId) {
-    const originsRes = await fetch(
-      `${API}/api/publications/${embedPublicationId}/allowed-origins`,
-      {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({ allowedOrigins: ['not-a-url'] }),
-      },
-    );
-    assert(
-      originsRes.status === 400,
-      `invalid origin should be rejected with 400, got ${originsRes.status}`,
-    );
-  }
+  //    Exactly one of `primary` / `other` is the embed publication.
+  const embedPublicationId = otherChannel === 'embed' ? otherPublicationId : primary.id;
+  const originsRes = await fetch(
+    `${API}/api/publications/${embedPublicationId}/allowed-origins`,
+    {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ allowedOrigins: ['not-a-url'] }),
+    },
+  );
+  assert(
+    originsRes.status === 400,
+    `invalid origin should be rejected with 400, got ${originsRes.status}`,
+  );
+
+  // 6. Tenant erasure refuses to run without a matching slug confirmation.
+  const badErase = await fetch(`${API}/api/orgs/current`, {
+    method: 'DELETE',
+    headers,
+    body: JSON.stringify({ confirmSlug: 'definitely-not-the-slug' }),
+  });
+  assert(
+    badErase.status === 400,
+    `erase with wrong confirmSlug should be 400, got ${badErase.status}`,
+  );
+
+  const unconfirmedErase = await fetch(`${API}/api/orgs/current`, {
+    method: 'DELETE',
+    headers,
+    body: '{}',
+  });
+  assert(
+    unconfirmedErase.status >= 400 && unconfirmedErase.status < 500,
+    `erase without confirmSlug should be rejected, got ${unconfirmedErase.status}`,
+  );
 
   await fetch(`${API}/api/publication-tokens/${minted.id}/revoke`, {
     method: 'POST',

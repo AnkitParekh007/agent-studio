@@ -1,0 +1,42 @@
+{
+	# Compose publishes 443 only; services stay on plain HTTP inside the network.
+	auto_https disable_redirects
+	admin off
+}
+
+# Shared TLS + hardening for every site below.
+#
+# `tls internal` mints certificates from Caddy's local CA into the caddy_data volume,
+# so no private key is ever committed to the repository. For a real deployment either
+# mount a certificate pair into /etc/caddy/certs and use `tls /etc/caddy/certs/site.crt
+# /etc/caddy/certs/site.key`, or swap in `tls you@example.com` for public ACME issuance.
+(site) {
+	tls internal
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+{$CADDY_API_HOST:api.localhost} {
+	import site
+	reverse_proxy api:4000
+}
+
+{$CADDY_CONTROL_PLANE_HOST:studio.localhost} {
+	import site
+	reverse_proxy control-plane-web:3000
+}
+
+{$CADDY_AGENT_RUNTIME_HOST:apps.localhost} {
+	import site
+	reverse_proxy agent-web-runtime:3001
+}
+
+{$CADDY_EMBED_HOST:embed.localhost} {
+	import site
+	reverse_proxy embed-runtime:3002
+}

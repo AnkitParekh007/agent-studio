@@ -151,3 +151,7 @@ vite.config.ts.timestamp-*
 # Database dumps from scripts/backup-postgres.mjs
 backups/
 
+# Operator-supplied TLS material for the Caddy front door
+deploy/caddy/certs/*
+!deploy/caddy/certs/.gitkeep
+

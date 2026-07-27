@@ -6,7 +6,6 @@ import {
   Inject,
   Injectable,
   NotFoundException,
-  type OnModuleDestroy,
 } from '@nestjs/common';
 import { corsOriginList } from '@agent-studio/config';
 import {
@@ -28,36 +27,34 @@ import {
 import type { AgentRuntimeEvent } from '@agent-studio/runtime-core';
 import { and, eq, gte, sql } from 'drizzle-orm';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { Redis } from 'ioredis';
 import { AgentsService } from '../agents/agents.service.js';
 import type { RequestContext } from '../auth/auth.types.js';
 import { AuditService } from '../core/audit.service.js';
 import { logWarn } from '../core/logger.js';
 import { MetricsService } from '../core/metrics.service.js';
 import { getTracer } from '../core/otel.js';
-import { DB, ENV, RUNTIME_REGISTRY, type Db, type Env, type Registry } from '../core/tokens.js';
+import {
+  DB,
+  ENV,
+  REDIS,
+  RUNTIME_REGISTRY,
+  type Db,
+  type Env,
+  type Redis,
+  type Registry,
+} from '../core/tokens.js';
 
 @Injectable()
-export class GatewayService implements OnModuleDestroy {
-  private readonly redis: Redis;
-
+export class GatewayService {
   constructor(
     @Inject(DB) private readonly db: Db,
     @Inject(ENV) private readonly env: Env,
+    @Inject(REDIS) private readonly redis: Redis,
     @Inject(RUNTIME_REGISTRY) private readonly registry: Registry,
     @Inject(AgentsService) private readonly agents: AgentsService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(MetricsService) private readonly metrics: MetricsService,
-  ) {
-    this.redis = new Redis(this.env.REDIS_URL, {
-      lazyConnect: true,
-      maxRetriesPerRequest: 2,
-    });
-  }
-
-  async onModuleDestroy() {
-    await this.redis.quit().catch(() => undefined);
-  }
+  ) {}
 
   async startSession(
     ctx: RequestContext,
@@ -84,8 +81,13 @@ export class GatewayService implements OnModuleDestroy {
     input: { publicationId: string; message?: string },
   ) {
     await this.enforceRateLimit(ctx.organizationId);
-    await this.enforceConcurrentSessions(ctx.organizationId);
-    await this.enforceOrgMonthlySpend(ctx.organizationId);
+    const spend = await this.checkOrgMonthlySpend(ctx.organizationId);
+    if (!spend.ok) {
+      this.metrics.increment('gateway_org_budget_denied');
+      throw new ForbiddenException(
+        `Organization monthly spend limit reached ($${spend.max.toFixed(2)})`,
+      );
+    }
 
     if (ctx.authMode === 'publication_token' && ctx.publicationId !== input.publicationId) {
       throw new ForbiddenException('Publication token is not valid for this publication');
@@ -124,57 +126,63 @@ export class GatewayService implements OnModuleDestroy {
     const adapter = this.registry.get(deployment.runtimeProvider as 'local' | 'claude');
     const correlationId = newId('corr');
 
-    const runtimeSession = await adapter.startSession({
-      deploymentId: deployment.id,
-      providerAgentId: deployment.providerAgentId,
-      providerEnvironmentId: deployment.providerEnvironmentId,
-      initialMessage: input.message,
-      metadata: {
-        correlationId,
+    await this.reserveSessionSlot(ctx.organizationId);
+    try {
+      const runtimeSession = await adapter.startSession({
+        deploymentId: deployment.id,
+        providerAgentId: deployment.providerAgentId,
+        providerEnvironmentId: deployment.providerEnvironmentId,
+        initialMessage: input.message,
+        metadata: {
+          correlationId,
+          organizationId: ctx.organizationId,
+          publicationId: publication.id,
+          toolPermissions: version.config.toolPermissions,
+          maxToolCalls: version.config.runtimeLimits.maxToolCalls,
+        },
+      });
+
+      const sessionId = newId('rsess');
+      await this.db.insert(runtimeSessions).values({
+        id: sessionId,
         organizationId: ctx.organizationId,
         publicationId: publication.id,
-        toolPermissions: version.config.toolPermissions,
-        maxToolCalls: version.config.runtimeLimits.maxToolCalls,
-      },
-    });
-
-    const sessionId = newId('rsess');
-    await this.db.insert(runtimeSessions).values({
-      id: sessionId,
-      organizationId: ctx.organizationId,
-      publicationId: publication.id,
-      agentId: publication.agentId,
-      versionId: publication.versionId,
-      deploymentId: deployment.id,
-      userId: ctx.user.id.startsWith('pubtoken:') ? null : ctx.user.id,
-      runtimeProvider: deployment.runtimeProvider,
-      providerSessionId: runtimeSession.providerSessionId,
-      status: 'active',
-      correlationId,
-    });
-
-    this.metrics.increment('gateway_sessions_started');
-    await this.audit.record({
-      organizationId: ctx.organizationId,
-      actorUserId: ctx.user.id.startsWith('pubtoken:') ? null : ctx.user.id,
-      action: 'session.started',
-      resourceType: 'runtime_session',
-      resourceId: sessionId,
-      correlationId,
-      metadata: {
-        publicationId: publication.id,
+        agentId: publication.agentId,
+        versionId: publication.versionId,
+        deploymentId: deployment.id,
+        userId: ctx.user.id.startsWith('pubtoken:') ? null : ctx.user.id,
         runtimeProvider: deployment.runtimeProvider,
-        model: version.config.model,
-        authMode: ctx.authMode ?? 'session',
-      },
-    });
+        providerSessionId: runtimeSession.providerSessionId,
+        status: 'active',
+        correlationId,
+      });
 
-    return {
-      sessionId,
-      providerSessionId: runtimeSession.providerSessionId,
-      correlationId,
-      runtimeProvider: deployment.runtimeProvider,
-    };
+      this.metrics.increment('gateway_sessions_started');
+      await this.audit.record({
+        organizationId: ctx.organizationId,
+        actorUserId: ctx.user.id.startsWith('pubtoken:') ? null : ctx.user.id,
+        action: 'session.started',
+        resourceType: 'runtime_session',
+        resourceId: sessionId,
+        correlationId,
+        metadata: {
+          publicationId: publication.id,
+          runtimeProvider: deployment.runtimeProvider,
+          model: version.config.model,
+          authMode: ctx.authMode ?? 'session',
+        },
+      });
+
+      return {
+        sessionId,
+        providerSessionId: runtimeSession.providerSessionId,
+        correlationId,
+        runtimeProvider: deployment.runtimeProvider,
+      };
+    } catch (err) {
+      await this.releaseSessionSlot(ctx.organizationId);
+      throw err;
+    }
   }
 
   async submitInput(ctx: RequestContext, sessionId: string, text: string) {
@@ -195,10 +203,7 @@ export class GatewayService implements OnModuleDestroy {
     if (!session.providerSessionId) throw new BadRequestException('Session missing provider id');
     const adapter = this.registry.get(session.runtimeProvider as 'local' | 'claude');
     await adapter.cancelSession(session.providerSessionId);
-    await this.db
-      .update(runtimeSessions)
-      .set({ status: 'cancelled', endedAt: new Date(), updatedAt: new Date() })
-      .where(eq(runtimeSessions.id, sessionId));
+    await this.closeSession(ctx.organizationId, sessionId, 'cancelled');
     this.metrics.increment('gateway_sessions_cancelled');
     return { ok: true };
   }
@@ -318,25 +323,29 @@ export class GatewayService implements OnModuleDestroy {
     }
   }
 
-  private async enforceConcurrentSessions(organizationId: string) {
+  private concurrencyKey(organizationId: string) {
+    return `gateway:concurrency:${organizationId}`;
+  }
+
+  /**
+   * Atomic slot reservation. A DB `count(*)` races across API replicas, so the live
+   * counter lives in Redis and is released on end/cancel/timeout. The TTL is a
+   * safety net so a crashed replica cannot strand slots forever.
+   */
+  private async reserveSessionSlot(organizationId: string) {
     const [settings] = await this.db
       .select()
       .from(organizationSettings)
       .where(eq(organizationSettings.organizationId, organizationId))
       .limit(1);
-    const max =
-      settings?.maxConcurrentSessions ?? this.env.GATEWAY_MAX_CONCURRENT_SESSIONS;
+    const max = settings?.maxConcurrentSessions ?? this.env.GATEWAY_MAX_CONCURRENT_SESSIONS;
 
-    const [row] = await this.db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(runtimeSessions)
-      .where(
-        and(
-          eq(runtimeSessions.organizationId, organizationId),
-          eq(runtimeSessions.status, 'active'),
-        ),
-      );
-    if ((row?.count ?? 0) >= max) {
+    const key = this.concurrencyKey(organizationId);
+    const active = await this.redis.incr(key);
+    await this.redis.pexpire(key, this.env.GATEWAY_SESSION_TIMEOUT_MS * 2);
+
+    if (active > max) {
+      await this.releaseSessionSlot(organizationId);
       this.metrics.increment('gateway_concurrency_denied');
       throw new HttpException(
         `Max concurrent sessions reached (${max})`,
@@ -345,16 +354,23 @@ export class GatewayService implements OnModuleDestroy {
     }
   }
 
-  private async enforceOrgMonthlySpend(organizationId: string) {
+  private async releaseSessionSlot(organizationId: string) {
+    const key = this.concurrencyKey(organizationId);
+    const remaining = await this.redis.decr(key);
+    if (remaining < 0) await this.redis.set(key, '0');
+  }
+
+  private async checkOrgMonthlySpend(organizationId: string) {
     const [settings] = await this.db
       .select()
       .from(organizationSettings)
       .where(eq(organizationSettings.organizationId, organizationId))
       .limit(1);
-    if (!settings?.maxUsdMonthly) return;
 
-    const max = Number(settings.maxUsdMonthly);
-    if (!Number.isFinite(max)) return;
+    const max = Number(settings?.maxUsdMonthly ?? Number.NaN);
+    if (!settings?.maxUsdMonthly || !Number.isFinite(max)) {
+      return { ok: true as const, max: 0, spent: 0 };
+    }
 
     const monthStart = new Date();
     monthStart.setUTCDate(1);
@@ -373,12 +389,7 @@ export class GatewayService implements OnModuleDestroy {
       );
 
     const spent = Number(row?.total ?? 0);
-    if (spent >= max) {
-      this.metrics.increment('gateway_org_budget_denied');
-      throw new ForbiddenException(
-        `Organization monthly spend limit reached ($${max.toFixed(2)})`,
-      );
-    }
+    return { ok: spent < max, max, spent };
   }
 
   private async enforceAndPersist(
@@ -415,6 +426,33 @@ export class GatewayService implements OnModuleDestroy {
     await this.persistEvent(ctx.organizationId, sessionId, event);
 
     if (event.type === 'usage') {
+      // The org cap can be crossed mid-session; re-check on every usage event.
+      const spend = await this.checkOrgMonthlySpend(ctx.organizationId);
+      if (!spend.ok) {
+        this.metrics.increment('gateway_org_budget_denied');
+        await this.audit.record({
+          organizationId: ctx.organizationId,
+          actorUserId: ctx.user.id.startsWith('pubtoken:') ? null : ctx.user.id,
+          action: 'session.org_budget_exceeded',
+          resourceType: 'runtime_session',
+          resourceId: sessionId,
+          metadata: { maxUsdMonthly: spend.max, spentUsd: spend.spent },
+        });
+        const denied: AgentRuntimeEvent = {
+          id: event.id,
+          type: 'error',
+          sequence: event.sequence + 1,
+          timestamp: new Date().toISOString(),
+          payload: {
+            message: `Organization monthly spend limit reached ($${spend.max.toFixed(2)})`,
+            code: 'org_budget_exceeded',
+          },
+        };
+        await this.persistEvent(ctx.organizationId, sessionId, denied);
+        await this.forceEnd(ctx.organizationId, sessionId, providerSessionId);
+        return denied;
+      }
+
       const usage = await this.sessionUsage(ctx.organizationId, sessionId);
       const budgetCheck = checkBudgets(config.budgets, usage);
       if (!budgetCheck.ok) {
@@ -450,10 +488,28 @@ export class GatewayService implements OnModuleDestroy {
     const session = await this.getSession(organizationId, sessionId);
     const adapter = this.registry.get(session.runtimeProvider as 'local' | 'claude');
     await adapter.cancelSession(providerSessionId).catch(() => undefined);
-    await this.db
+    await this.closeSession(organizationId, sessionId, 'ended');
+  }
+
+  /**
+   * Flips an active session to a terminal status and frees its concurrency slot.
+   * The `status = 'active'` predicate makes the slot release exactly-once even when
+   * cancel, timeout and `session.ended` all fire for the same session.
+   */
+  private async closeSession(
+    organizationId: string,
+    sessionId: string,
+    status: 'ended' | 'cancelled',
+  ) {
+    const closed = await this.db
       .update(runtimeSessions)
-      .set({ status: 'ended', endedAt: new Date(), updatedAt: new Date() })
-      .where(eq(runtimeSessions.id, sessionId));
+      .set({ status, endedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(runtimeSessions.id, sessionId), eq(runtimeSessions.status, 'active')))
+      .returning({ id: runtimeSessions.id });
+
+    if (closed.length > 0) {
+      await this.releaseSessionSlot(organizationId);
+    }
   }
 
   private async sessionUsage(organizationId: string, sessionId: string) {
@@ -525,10 +581,7 @@ export class GatewayService implements OnModuleDestroy {
     }
 
     if (event.type === 'session.ended') {
-      await this.db
-        .update(runtimeSessions)
-        .set({ status: 'ended', endedAt: new Date(), updatedAt: new Date() })
-        .where(eq(runtimeSessions.id, sessionId));
+      await this.closeSession(organizationId, sessionId, 'ended');
     }
   }
 }

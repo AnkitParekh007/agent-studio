@@ -41,7 +41,11 @@ RUN pnpm turbo run build \
 FROM base AS backend
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-COPY --from=build /app /app
+COPY --from=build --chown=node:node /app /app
 WORKDIR /app
+# Next.js writes .next/cache at runtime and pnpm needs a writable store dir.
+ENV npm_config_cache=/tmp/.npm
+ENV XDG_CACHE_HOME=/tmp/.cache
+USER node
 EXPOSE 3000 3001 3002 4000
 CMD ["node", "apps/api/dist/main.js"]

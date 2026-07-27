@@ -134,3 +134,79 @@ jobs:
         run: pnpm --filter @agent-studio/config build
       - name: Reject unsafe production env
         run: node scripts/check-production-env.mjs
+
+  # Boots the real production Compose stack (NODE_ENV=production, local runtime adapter
+  # forbidden) and smokes it. The Claude adapter is pointed at a CI-only HTTP double so
+  # the production path is exercised without provider credentials.
+  production-stack:
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE: docker compose -f docker-compose.prod.yml -f docker-compose.ci-prod.yml --env-file .env.production
+      API_BASE_URL: http://localhost:4000
+      CONTROL_PLANE_ORIGIN: http://localhost:3000
+      AGENT_RUNTIME_ORIGIN: http://localhost:3001
+      EMBED_RUNTIME_ORIGIN: http://localhost:3002
+      METRICS_BEARER_TOKEN: ci-prod-metrics-bearer-token
+      SMOKE_RUNTIME_PROVIDER: claude
+      SMOKE_MODEL: claude-sonnet-4-5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Write .env.production
+        run: |
+          {
+            echo 'POSTGRES_USER=agentstudio'
+            echo 'POSTGRES_PASSWORD=ci-prod-postgres-password'
+            echo 'POSTGRES_DB=agentstudio'
+            echo 'BETTER_AUTH_SECRET=ci-prod-better-auth-secret-at-least-32-chars!!'
+            echo 'SECRETS_MASTER_KEY=ci-prod-secrets-master-key-at-least-32-chars!!'
+            echo 'METRICS_BEARER_TOKEN=ci-prod-metrics-bearer-token'
+            echo 'DEFAULT_RUNTIME_PROVIDER=claude'
+            echo 'ANTHROPIC_API_KEY=ci-double-key'
+            echo 'API_BASE_URL=http://localhost:4000'
+            echo 'BETTER_AUTH_URL=http://localhost:4000'
+            echo 'NEXT_PUBLIC_API_BASE_URL=http://localhost:4000'
+            echo 'CONTROL_PLANE_ORIGIN=http://localhost:3000'
+            echo 'AGENT_RUNTIME_ORIGIN=http://localhost:3001'
+            echo 'EMBED_RUNTIME_ORIGIN=http://localhost:3002'
+            echo 'CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:3002'
+            echo 'HTTPS_HOST_PORT=8443'
+          } > .env.production
+      - name: Build and start production stack
+        run: $COMPOSE up -d --build
+      - name: Wait for API health
+        run: |
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:4000/health >/dev/null; then
+              echo "API ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API failed to become ready"
+          $COMPOSE ps
+          $COMPOSE logs --tail 200 api worker migrate
+          exit 1
+      - name: Assert production runtime contract
+        run: |
+          # The stack must be running in production mode with the local adapter disabled.
+          $COMPOSE exec -T api printenv NODE_ENV | grep -qx production
+          test "$($COMPOSE exec -T api printenv RUNTIME_ALLOW_LOCAL | tr -d '\r')" = "false"
+          # The API image must not run as root.
+          test "$($COMPOSE exec -T api id -u | tr -d '\r')" != "0"
+      - name: Seed demo users (one-shot, development profile)
+        run: $COMPOSE --profile demo run --rm seed
+      - name: Smoke deploy
+        run: node scripts/smoke-deploy.mjs
+      - name: Smoke authz negatives
+        run: node scripts/smoke-authz-negatives.mjs
+      - name: Verify TLS front door
+        run: curl -skf --resolve api.localhost:8443:127.0.0.1 https://api.localhost:8443/health
+      - name: Dump logs on failure
+        if: failure()
+        run: $COMPOSE logs --tail 300
+      - name: Tear down
+        if: always()
+        run: $COMPOSE down -v
