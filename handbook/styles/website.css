@@ -1,0 +1,249 @@
+/* Agent Studio handbook — modern, responsive, AI-factory aesthetic */
+
+:root {
+  --as-ink: #0f172a;
+  --as-muted: #475569;
+  --as-surface: #f8fafc;
+  --as-panel: #ffffff;
+  --as-line: #e2e8f0;
+  --as-accent: #0d9488;
+  --as-accent-soft: rgba(13, 148, 136, 0.12);
+  --as-accent-strong: #0f766e;
+  --as-warn: #b45309;
+  --as-danger: #b91c1c;
+  --as-radius: 10px;
+  --as-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  --as-font-display: "Segoe UI", "IBM Plex Sans", system-ui, sans-serif;
+  --as-font-body: "Segoe UI", "IBM Plex Sans", system-ui, sans-serif;
+  --as-font-mono: "IBM Plex Mono", "Cascadia Code", ui-monospace, monospace;
+}
+
+/* Night theme (HonKit fontsettings night mode) */
+.book.color-theme-2 {
+  --as-ink: #e2e8f0;
+  --as-muted: #94a3b8;
+  --as-surface: #0b1220;
+  --as-panel: #111827;
+  --as-line: #1f2937;
+  --as-accent: #2dd4bf;
+  --as-accent-soft: rgba(45, 212, 191, 0.14);
+  --as-accent-strong: #5eead4;
+  --as-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.book.color-theme-2 .book-body,
+.book.color-theme-2 .book-summary,
+.book.color-theme-2 .book-header {
+  background: var(--as-surface) !important;
+  color: var(--as-ink) !important;
+}
+
+.book.color-theme-2 .book-summary ul.summary li a,
+.book.color-theme-2 .book-header .btn {
+  color: var(--as-ink) !important;
+}
+
+.book.color-theme-2 .book-summary ul.summary li.active > a {
+  color: var(--as-accent-strong) !important;
+  background: var(--as-accent-soft) !important;
+}
+
+html,
+body,
+.book,
+.book-body,
+.book-summary {
+  font-family: var(--as-font-body) !important;
+}
+
+.book-summary {
+  background: var(--as-panel) !important;
+  border-right: 1px solid var(--as-line) !important;
+}
+
+.book-summary ul.summary li a {
+  color: var(--as-muted) !important;
+  border-left: 3px solid transparent;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.book-summary ul.summary li a:hover {
+  color: var(--as-ink) !important;
+  background: var(--as-accent-soft) !important;
+}
+
+.book-summary ul.summary li.active > a {
+  color: var(--as-accent-strong) !important;
+  background: var(--as-accent-soft) !important;
+  border-left-color: var(--as-accent);
+  font-weight: 600;
+}
+
+.book-summary ul.summary li.header {
+  color: var(--as-ink) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  margin-top: 18px !important;
+  opacity: 0.85;
+}
+
+.book-body {
+  background: var(--as-surface) !important;
+}
+
+.book-body .body-inner,
+.book-body .page-wrapper {
+  background: transparent !important;
+}
+
+.markdown-section {
+  color: var(--as-ink) !important;
+  max-width: 780px;
+  line-height: 1.7;
+}
+
+.markdown-section h1,
+.markdown-section h2,
+.markdown-section h3 {
+  font-family: var(--as-font-display) !important;
+  letter-spacing: -0.02em;
+  color: var(--as-ink) !important;
+}
+
+.markdown-section h1 {
+  font-size: 2.25rem !important;
+  margin-bottom: 0.6rem !important;
+}
+
+.markdown-section h1 + p {
+  font-size: 1.125rem;
+  color: var(--as-muted);
+  margin-top: 0;
+}
+
+.markdown-section a {
+  color: var(--as-accent-strong) !important;
+}
+
+.markdown-section code,
+.markdown-section pre {
+  font-family: var(--as-font-mono) !important;
+  border-radius: 8px !important;
+}
+
+.markdown-section pre {
+  background: #0b1220 !important;
+  box-shadow: var(--as-shadow);
+}
+
+.markdown-section table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.markdown-section table th,
+.markdown-section table td {
+  border-color: var(--as-line) !important;
+}
+
+.markdown-section blockquote {
+  border-left: 4px solid var(--as-accent) !important;
+  background: var(--as-accent-soft);
+  border-radius: 0 var(--as-radius) var(--as-radius) 0;
+  color: var(--as-ink) !important;
+}
+
+/* Hero callout used on the welcome page */
+.as-hero {
+  display: block;
+  padding: 1.25rem 1.4rem;
+  margin: 1.25rem 0 1.75rem;
+  border: 1px solid var(--as-line);
+  border-radius: var(--as-radius);
+  background:
+    radial-gradient(1200px 200px at 10% -40%, var(--as-accent-soft), transparent 60%),
+    var(--as-panel);
+  box-shadow: var(--as-shadow);
+}
+
+.as-hero strong {
+  color: var(--as-accent-strong);
+}
+
+.as-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.as-pill {
+  display: inline-block;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  background: var(--as-accent-soft);
+  color: var(--as-accent-strong);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.book-header {
+  background: rgba(248, 250, 252, 0.85) !important;
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--as-line);
+}
+
+.book.color-theme-2 .book-header {
+  background: rgba(11, 18, 32, 0.85) !important;
+}
+
+#book-search-input {
+  border-radius: 8px !important;
+  border: 1px solid var(--as-line) !important;
+  background: var(--as-panel) !important;
+}
+
+#book-search-input input {
+  background: transparent !important;
+  color: var(--as-ink) !important;
+}
+
+#book-search-results .search-results {
+  background: var(--as-panel);
+}
+
+.navigation {
+  color: var(--as-muted) !important;
+}
+
+.navigation:hover {
+  color: var(--as-accent-strong) !important;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .markdown-section {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .markdown-section h1 {
+    font-size: 1.75rem !important;
+  }
+
+  .as-hero {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .book-summary {
+    width: calc(100vw - 40px) !important;
+  }
+}

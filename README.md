@@ -52,7 +52,8 @@ Default seed users (development only):
 
 ## Documentation
 
-See [`docs/`](docs/) for product vision, architecture, security, local setup, testing, deployment, and roadmap.
+- **Handbook (HonKit / GitHub Pages):** [`handbook/`](handbook/) — run `pnpm docs:install && pnpm docs:dev`
+- **Engineering docs:** [`docs/`](docs/) — product vision, architecture, security, local setup, testing, deployment, and roadmap
 
 ## Production package
 

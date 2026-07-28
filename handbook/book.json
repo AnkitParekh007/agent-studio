@@ -1,0 +1,70 @@
+{
+  "title": "Agent Studio",
+  "description": "Enterprise Agent Application Factory — define once, govern centrally, publish anywhere.",
+  "author": "Agent Studio",
+  "language": "en",
+  "gitbook": ">=3.0.0",
+  "root": ".",
+  "structure": {
+    "readme": "README.md",
+    "summary": "SUMMARY.md"
+  },
+  "links": {
+    "sidebar": {
+      "GitHub": "https://github.com/AnkitParekh007/agent-studio",
+      "Pilot checklist": "https://github.com/AnkitParekh007/agent-studio/blob/main/docs/operations/pilot-dry-run.md"
+    }
+  },
+  "plugins": [
+    "-lunr",
+    "-search",
+    "-livereload",
+    "search-pro",
+    "expandable-chapters",
+    "back-to-top-button",
+    "copy-code-button",
+    "flexible-alerts",
+    "github",
+    "sitemap"
+  ],
+  "pluginsConfig": {
+    "theme-default": {
+      "showLevel": false,
+      "styles": {
+        "website": "styles/website.css"
+      }
+    },
+    "fontsettings": {
+      "theme": "white",
+      "family": "sans",
+      "size": 2
+    },
+    "sharing": {
+      "facebook": false,
+      "twitter": true,
+      "linkedin": true,
+      "all": ["twitter", "linkedin"]
+    },
+    "github": {
+      "url": "https://github.com/AnkitParekh007/agent-studio"
+    },
+    "sitemap": {
+      "hostname": "https://ankitparekh007.github.io/agent-studio/"
+    },
+    "flexible-alerts": {
+      "style": "callout",
+      "note": { "label": "Note" },
+      "tip": { "label": "Tip" },
+      "warning": { "label": "Warning" },
+      "danger": { "label": "Danger" }
+    },
+    "search-pro": {
+      "cutWord": "",
+      "maxWords": 20000
+    }
+  },
+  "variables": {
+    "product": "Agent Studio",
+    "tagline": "Define once. Govern centrally. Publish anywhere."
+  }
+}

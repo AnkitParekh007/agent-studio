@@ -1,0 +1,8 @@
+node_modules/
+_book/
+package.json
+package-lock.json
+README-BUILD.md
+.gitignore
+*.pdf
+.DS_Store
