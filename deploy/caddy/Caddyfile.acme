@@ -1,0 +1,36 @@
+{
+	# Public ACME: needs DNS for CADDY_*_HOST pointing at this host, and inbound 80+443.
+	# Set ACME_EMAIL in the environment (compose passes it through).
+	email {$ACME_EMAIL}
+	admin off
+}
+
+# Shared TLS + hardening. Caddy obtains/renews certs via Let's Encrypt (or ZeroSSL).
+(site) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+{$CADDY_API_HOST:api.localhost} {
+	import site
+	reverse_proxy api:4000
+}
+
+{$CADDY_CONTROL_PLANE_HOST:studio.localhost} {
+	import site
+	reverse_proxy control-plane-web:3000
+}
+
+{$CADDY_AGENT_RUNTIME_HOST:apps.localhost} {
+	import site
+	reverse_proxy agent-web-runtime:3001
+}
+
+{$CADDY_EMBED_HOST:embed.localhost} {
+	import site
+	reverse_proxy embed-runtime:3002
+}

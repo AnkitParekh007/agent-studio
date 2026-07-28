@@ -18,12 +18,17 @@ docker compose -f docker-compose.prod.yml cp caddy:/data/caddy/pki/authorities/l
 
 ## Real certificates
 
-Pick one and edit the `(site)` snippet in `Caddyfile`:
+**Swap off `tls internal` before any public URL.** Ready-made Caddyfiles:
 
-| Mode | Directive | Notes |
+| Mode | File | How to enable |
 | --- | --- | --- |
-| Operator-supplied | `tls /etc/caddy/certs/site.crt /etc/caddy/certs/site.key` | Mount the pair into `deploy/caddy/certs/` (git-ignored) |
-| Public ACME | `tls you@example.com` | Needs public DNS pointing at the host and inbound `80` + `443` |
+| Local CA (default) | `Caddyfile` | `pnpm deploy:up` |
+| Public ACME | `Caddyfile.acme` | Set `ACME_EMAIL` + public `CADDY_*_HOST`, then `pnpm deploy:up:acme` (publishes `80`+`443`) |
+| Operator-supplied | `Caddyfile.file-certs` | Put `site.crt` / `site.key` in `deploy/caddy/certs/` and mount that Caddyfile over `/etc/caddy/Caddyfile` |
+
+After changing browser-facing hostnames, set `API_BASE_URL` / `BETTER_AUTH_URL` /
+`NEXT_PUBLIC_API_BASE_URL` / `*_ORIGIN` / `CORS_ORIGINS` to matching `https://` URLs and
+**rebuild** so Next bakes in `NEXT_PUBLIC_*`.
 
 ## Hostnames
 

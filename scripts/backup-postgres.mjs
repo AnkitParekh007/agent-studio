@@ -61,6 +61,9 @@ child.on('error', (err) => {
   stderrNote = err.message;
 });
 
+// Attach close listener before draining stdout so we never miss the exit event.
+const closed = new Promise((resolve) => child.on('close', resolve));
+
 try {
   await pipeline(child.stdout, createGzip(), createWriteStream(outFile));
 } catch (err) {
@@ -68,7 +71,7 @@ try {
   process.exit(1);
 }
 
-const code = await new Promise((resolve) => child.on('close', resolve));
+const code = await closed;
 if (code !== 0) {
   console.error(`pg_dump exited with code ${code}. ${stderrNote}`);
   process.exit(code ?? 1);

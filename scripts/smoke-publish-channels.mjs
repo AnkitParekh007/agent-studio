@@ -1,4 +1,12 @@
-import { API, approveAsApprover, json, orgHeaders, signIn } from './smoke-lib.mjs';
+import {
+  API,
+  approveAsApprover,
+  json,
+  orgHeaders,
+  signIn,
+  SMOKE_MODEL,
+  SMOKE_RUNTIME_PROVIDER,
+} from './smoke-lib.mjs';
 
 async function main() {
   const cookies = await signIn('owner@example.com');
@@ -22,7 +30,8 @@ async function main() {
     headers,
     body: JSON.stringify({
       config: {
-        runtimeProvider: 'local',
+        model: SMOKE_MODEL,
+        runtimeProvider: SMOKE_RUNTIME_PROVIDER,
         instructions: { purpose: 'Answer briefly.' },
         starterPrompts: ['Hello'],
       },
@@ -62,14 +71,28 @@ async function main() {
   }
   if (!app) throw new Error('application create timed out waiting for provision');
 
+  // Publish requires a ready deployment; create does not — poll until provision finishes.
   for (const channel of ['hosted_web', 'embed', 'api', 'desktop']) {
-    const pub = await fetch(`${API}/api/applications/${app.id}/publish`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ channel }),
-    });
-    const body = await json(pub);
-    if (!pub.ok) throw new Error(`publish ${channel} failed: ${JSON.stringify(body)}`);
+    let body = null;
+    let ok = false;
+    for (let i = 0; i < 60; i++) {
+      const pub = await fetch(`${API}/api/applications/${app.id}/publish`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ channel }),
+      });
+      body = await json(pub);
+      if (pub.ok) {
+        ok = true;
+        break;
+      }
+      const msg = String(body?.message ?? '');
+      if (!msg.includes('ready deployment')) {
+        throw new Error(`publish ${channel} failed: ${JSON.stringify(body)}`);
+      }
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    if (!ok) throw new Error(`publish ${channel} timed out waiting for provision`);
     if (!body.channels?.[channel]?.publicationId) {
       throw new Error(`missing publication for ${channel}`);
     }

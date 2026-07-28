@@ -19,12 +19,16 @@ export async function json(res) {
   }
 }
 
+/** Browser origin Better Auth trusts; must match CORS_ORIGINS / CONTROL_PLANE_ORIGIN. */
+export const CONTROL_ORIGIN =
+  process.env.CONTROL_PLANE_ORIGIN ?? 'http://localhost:3000';
+
 export async function signIn(email, password = 'Password123!') {
   const res = await fetch(`${API}/api/auth/sign-in/email`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      origin: 'http://localhost:3000',
+      origin: CONTROL_ORIGIN,
     },
     body: JSON.stringify({ email, password }),
   });
@@ -113,18 +117,48 @@ export async function ensureActivePublication(headers) {
   if (!submitRes.ok) throw new Error(`fixture submit failed: ${JSON.stringify(submitted)}`);
   await approveAsApprover(submitted.request.id);
 
-  // Publishing only succeeds once the worker has provisioned a deployment.
-  for (let attempt = 0; attempt < 40; attempt++) {
-    const publishRes = await fetch(`${API}/api/applications/publish`, {
+  // createAndPublish is not idempotent: create succeeds before provision, then publish
+  // 400s and retries collide on slug. Create once, then poll channel publish.
+  let appId = null;
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const createApp = await fetch(`${API}/api/applications`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ agentId: agent.id, name: 'Authz Fixture App', slug: `${slug}-app` }),
+      body: JSON.stringify({
+        agentId: agent.id,
+        name: 'Authz Fixture App',
+        slug: `${slug}-app`,
+        templateKey: 'general_assistant',
+      }),
+    });
+    if (createApp.ok) {
+      appId = (await json(createApp)).id;
+      break;
+    }
+    const body = await createApp.text();
+    if (!body.includes('approved version')) {
+      throw new Error(`fixture app create failed: ${body}`);
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  if (!appId) throw new Error('fixture app create timed out');
+
+  for (let attempt = 0; attempt < 90; attempt++) {
+    const publishRes = await fetch(`${API}/api/applications/${appId}/publish`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ channel: 'hosted_web' }),
     });
     if (publishRes.ok) {
       const created = await findActivePublication(headers);
       if (created) return created;
+    } else {
+      const body = await publishRes.text();
+      if (!body.includes('ready deployment')) {
+        throw new Error(`fixture publish failed: ${body}`);
+      }
     }
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 1000));
   }
 
   throw new Error('fixture publication never became available (deployment not provisioned)');
