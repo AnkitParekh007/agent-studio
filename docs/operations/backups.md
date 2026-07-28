@@ -14,9 +14,15 @@ node scripts/backup-postgres.mjs --out /mnt/backups
 The script shells out to `docker compose exec -T postgres pg_dump` and gzips the stream, so it
 works the same on Windows, macOS, and Linux. Credentials are read from `.env.production`.
 
-Schedule it (cron / Task Scheduler) at least daily and ship the output off-host. Backups contain
-encrypted secret values but **not** `SECRETS_MASTER_KEY` — store that key separately or the dump
-is unrecoverable.
+Schedule it at least daily and ship the output off-host:
+
+```bash
+pnpm backup:schedule --install   # prints Task Scheduler / cron lines
+pnpm backup:schedule             # run once (also prunes to BACKUP_KEEP, default 14)
+```
+
+Backups contain encrypted secret values but **not** `SECRETS_MASTER_KEY` — store that key
+separately or the dump is unrecoverable.
 
 ## Restore
 
@@ -49,6 +55,13 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d
 
 4. Verify: `curl -fsS http://localhost:4000/health`, sign in to the control plane, and confirm an
    approved agent version still resolves.
+
+### Restore drill (recommended before go-live)
+
+```bash
+pnpm backup:restore-drill        # restores into agentstudio_restore_drill (non-destructive)
+# pnpm backup:restore-drill -- --live   # only when intentionally replacing the live DB
+```
 
 ## Retention
 

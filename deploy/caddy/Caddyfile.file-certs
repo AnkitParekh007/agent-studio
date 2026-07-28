@@ -1,0 +1,37 @@
+{
+	# Operator-supplied certs mounted at /etc/caddy/certs/{site.crt,site.key}.
+	# Use the same SAN/CN across hosts, or replace with per-host tls directives.
+	auto_https disable_redirects
+	admin off
+}
+
+(site) {
+	tls /etc/caddy/certs/site.crt /etc/caddy/certs/site.key
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+{$CADDY_API_HOST:api.localhost} {
+	import site
+	reverse_proxy api:4000
+}
+
+{$CADDY_CONTROL_PLANE_HOST:studio.localhost} {
+	import site
+	reverse_proxy control-plane-web:3000
+}
+
+{$CADDY_AGENT_RUNTIME_HOST:apps.localhost} {
+	import site
+	reverse_proxy agent-web-runtime:3001
+}
+
+{$CADDY_EMBED_HOST:embed.localhost} {
+	import site
+	reverse_proxy embed-runtime:3002
+}

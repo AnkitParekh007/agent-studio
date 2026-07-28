@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -159,7 +160,10 @@ export class OrgsController {
   @UseGuards(AuthGuard, PermissionsGuard)
   @RequirePermissions('org:manage')
   eraseOrg(@AuthCtx() ctx: RequestContext, @Body() body: unknown) {
-    const input = z.object({ confirmSlug: z.string().min(1) }).parse(body);
-    return this.retention.eraseOrganization(ctx, input.confirmSlug);
+    const parsed = z.object({ confirmSlug: z.string().min(1) }).safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException('confirmSlug is required');
+    }
+    return this.retention.eraseOrganization(ctx, parsed.data.confirmSlug);
   }
 }

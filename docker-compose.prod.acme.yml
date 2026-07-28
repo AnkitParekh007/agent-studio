@@ -1,0 +1,31 @@
+# Override: swap Caddy from `tls internal` to public ACME before exposing a public URL.
+#
+# Prerequisites:
+#   - Public DNS for CADDY_*_HOST → this host
+#   - ACME_EMAIL set in .env.production
+#   - Inbound TCP 80 and 443
+#   - API_BASE_URL / BETTER_AUTH_URL / *_ORIGIN / CORS_ORIGINS use https:// those hosts
+#   - Rebuild Next images after URL changes so NEXT_PUBLIC_API_BASE_URL is baked in
+#
+# Usage:
+#   pnpm deploy:up:acme
+#   # or:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.prod.acme.yml \
+#     --env-file .env.production up -d caddy
+
+services:
+  caddy:
+    environment:
+      CADDY_API_HOST: ${CADDY_API_HOST:?set CADDY_API_HOST to a public hostname}
+      CADDY_CONTROL_PLANE_HOST: ${CADDY_CONTROL_PLANE_HOST:?set CADDY_CONTROL_PLANE_HOST}
+      CADDY_AGENT_RUNTIME_HOST: ${CADDY_AGENT_RUNTIME_HOST:?set CADDY_AGENT_RUNTIME_HOST}
+      CADDY_EMBED_HOST: ${CADDY_EMBED_HOST:?set CADDY_EMBED_HOST}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL for Let's Encrypt}
+    ports:
+      - '${HTTP_HOST_PORT:-80}:80'
+      - '${HTTPS_HOST_PORT:-443}:443'
+    volumes:
+      - ./deploy/caddy/Caddyfile.acme:/etc/caddy/Caddyfile:ro
+      - ./deploy/caddy/certs:/etc/caddy/certs:ro
+      - agentstudio_prod_caddy:/data
+      - agentstudio_prod_caddy_config:/config

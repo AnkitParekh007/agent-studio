@@ -11,6 +11,8 @@
 ## Production Compose package
 
 Supported way to run the full stack outside day-to-day local development.
+For a first pilot bring-up (OIDC/MFA, ACME swap, backups, smokes), follow
+[pilot-dry-run.md](./pilot-dry-run.md).
 
 ### Services
 
