@@ -66,5 +66,8 @@
   "variables": {
     "product": "Agent Studio",
     "tagline": "Define once. Govern centrally. Publish anywhere."
+  },
+  "styles": {
+    "website": "styles/website.css"
   }
 }

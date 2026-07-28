@@ -41,7 +41,7 @@ Agent Studio is built so the **default path is the governed path**. Claude Manag
 
 ## Reading this book
 
-Use the sidebar like a factory floor map: **Overview → Guides → Product → Developing → Security → Operations**. Search is full-text (toolbar). Switch night mode and font size from the **A** control in the header — the theme stays readable on phone and desktop.
+Use the sidebar like a factory floor map: **Overview → Guides → Product → Developing → Security → Operations**. Search lives in the header. Use the sun/moon control for light/dark theme.
 
 > [!NOTE]
 > Deep engineering notes also live in the repo under [`docs/`](https://github.com/AnkitParekh007/agent-studio/tree/main/docs). This handbook is the narrative, AI-centric surface; the repo docs remain the source of truth for ADRs and gap analysis.

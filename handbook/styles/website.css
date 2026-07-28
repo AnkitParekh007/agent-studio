@@ -1,71 +1,275 @@
-/* Agent Studio handbook — modern, responsive, AI-factory aesthetic */
+/* Agent Studio handbook — Monty Hayton Chat AI (Dribbble) inspired */
 
-:root {
-  --as-ink: #0f172a;
-  --as-muted: #475569;
-  --as-surface: #f8fafc;
+@import url("https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap");
+
+:root,
+html[data-theme="light"] {
+  --as-ink: #141416;
+  --as-muted: #5c5c66;
+  --as-surface: #ececee;
   --as-panel: #ffffff;
-  --as-line: #e2e8f0;
-  --as-accent: #0d9488;
-  --as-accent-soft: rgba(13, 148, 136, 0.12);
-  --as-accent-strong: #0f766e;
-  --as-warn: #b45309;
-  --as-danger: #b91c1c;
-  --as-radius: 10px;
-  --as-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
-  --as-font-display: "Segoe UI", "IBM Plex Sans", system-ui, sans-serif;
-  --as-font-body: "Segoe UI", "IBM Plex Sans", system-ui, sans-serif;
+  --as-panel-elevated: #f5f5f7;
+  --as-line: rgba(20, 20, 22, 0.1);
+  --as-line-strong: rgba(20, 20, 22, 0.16);
+  --as-accent: #a03583;
+  --as-accent-2: #4b31da;
+  --as-accent-soft: rgba(160, 53, 131, 0.1);
+  --as-accent-glow: rgba(75, 49, 218, 0.22);
+  --as-accent-strong: #4f2fc0;
+  --as-accent-grad: linear-gradient(90deg, #c048c8 0%, #7a3fd0 48%, #4b31da 100%);
+  --as-header-bg: rgba(245, 245, 247, 0.9);
+  --as-sidebar-bg: linear-gradient(180deg, #f3f3f5 0%, #ececee 100%);
+  --as-shadow-sm: 0 1px 2px rgba(26, 26, 28, 0.04);
+  --as-shadow: 0 10px 28px rgba(26, 26, 28, 0.07);
+  --as-shadow-lg: 0 18px 48px rgba(26, 26, 28, 0.1);
+  --as-radius: 16px;
+  --as-radius-sm: 12px;
+  --as-font-display: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  --as-font-body: "Figtree", "Segoe UI", sans-serif;
   --as-font-mono: "IBM Plex Mono", "Cascadia Code", ui-monospace, monospace;
+  --as-mesh-a: rgba(192, 72, 200, 0.08);
+  --as-mesh-b: rgba(75, 49, 218, 0.06);
+  --as-code-bg: #f0f0f4;
+  --as-code-fg: #1a1a1c;
+  --as-code-border: rgba(26, 26, 28, 0.12);
+  --as-code-btn-bg: rgba(255, 255, 255, 0.92);
+  --as-code-btn-fg: #4a4a52;
+  --as-code-btn-border: rgba(26, 26, 28, 0.14);
+  --as-code-btn-hover: #ffffff;
+  --as-hljs-keyword: #9a2f7a;
+  --as-hljs-string: #2f6b28;
+  --as-hljs-number: #4b31da;
+  --as-hljs-comment: #6b6b74;
+  --as-hljs-built: #4f2fc0;
+  --as-hljs-attr: #8a3a6a;
+  --as-prose: 1.0625rem;
+  color-scheme: light;
 }
 
-/* Night theme (HonKit fontsettings night mode) */
+html[data-theme="dark"],
 .book.color-theme-2 {
-  --as-ink: #e2e8f0;
-  --as-muted: #94a3b8;
-  --as-surface: #0b1220;
-  --as-panel: #111827;
-  --as-line: #1f2937;
-  --as-accent: #2dd4bf;
-  --as-accent-soft: rgba(45, 212, 191, 0.14);
-  --as-accent-strong: #5eead4;
-  --as-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --as-ink: #f5f4fa;
+  --as-muted: #c5c4d0;
+  --as-surface: #0e0e14;
+  --as-panel: #16161f;
+  --as-panel-elevated: #1c1c28;
+  --as-line: rgba(240, 239, 244, 0.12);
+  --as-line-strong: rgba(240, 239, 244, 0.2);
+  --as-accent: #d46bc8;
+  --as-accent-2: #8b7cf7;
+  --as-accent-soft: rgba(212, 107, 200, 0.14);
+  --as-accent-glow: rgba(139, 124, 247, 0.24);
+  --as-accent-strong: #c4b8ff;
+  --as-accent-grad: linear-gradient(90deg, #d46bc8 0%, #9b6ef0 48%, #6b5ef5 100%);
+  --as-header-bg: rgba(22, 22, 31, 0.9);
+  --as-sidebar-bg: linear-gradient(180deg, #16161f 0%, #12121a 100%);
+  --as-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --as-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  --as-shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.55);
+  --as-mesh-a: rgba(212, 107, 200, 0.08);
+  --as-mesh-b: rgba(107, 94, 245, 0.1);
+  --as-code-bg: #0f0f16;
+  --as-code-fg: #e8e7ef;
+  --as-code-border: rgba(240, 239, 244, 0.14);
+  --as-code-btn-bg: rgba(28, 28, 40, 0.92);
+  --as-code-btn-fg: #c4c3ce;
+  --as-code-btn-border: rgba(240, 239, 244, 0.16);
+  --as-code-btn-hover: #252534;
+  --as-hljs-keyword: #d46bc8;
+  --as-hljs-string: #9dcc7a;
+  --as-hljs-number: #8b7cf7;
+  --as-hljs-comment: #8a8996;
+  --as-hljs-built: #b8a9ff;
+  --as-hljs-attr: #e0a0d4;
+  color-scheme: dark;
 }
 
-.book.color-theme-2 .book-body,
-.book.color-theme-2 .book-summary,
-.book.color-theme-2 .book-header {
-  background: var(--as-surface) !important;
-  color: var(--as-ink) !important;
+/* ---------- Base ---------- */
+
+/* GitBook sets html to 10px — restore a normal rem root so type scales are readable */
+html {
+  font-size: 16px !important;
 }
 
-.book.color-theme-2 .book-summary ul.summary li a,
-.book.color-theme-2 .book-header .btn {
-  color: var(--as-ink) !important;
-}
-
-.book.color-theme-2 .book-summary ul.summary li.active > a {
-  color: var(--as-accent-strong) !important;
-  background: var(--as-accent-soft) !important;
+html,
+body {
+  height: 100%;
+  background: var(--as-surface);
 }
 
 html,
 body,
 .book,
 .book-body,
-.book-summary {
+.book-summary,
+.markdown-section {
   font-family: var(--as-font-body) !important;
+  color: var(--as-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
+
+/* Keep fontsettings A+/A- usable without exploding sizes after rem restore */
+.book.font-size-0 .markdown-section { font-size: 0.9375rem !important; }
+.book.font-size-1 .markdown-section { font-size: 1rem !important; }
+.book.font-size-2 .markdown-section { font-size: var(--as-prose) !important; }
+.book.font-size-3 .markdown-section { font-size: 1.125rem !important; }
+.book.font-size-4 .markdown-section { font-size: 1.1875rem !important; }
+
+.book {
+  background:
+    radial-gradient(900px 420px at 12% -10%, var(--as-mesh-a), transparent 60%),
+    radial-gradient(700px 380px at 100% 0%, var(--as-mesh-b), transparent 55%),
+    var(--as-surface) !important;
+  font-size: 1rem !important;
+}
+
+/* Ensure sticky header sticks within the real scrollport */
+.body-inner {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+.book-body {
+  overflow: hidden !important;
+}
+
+/* ---------- Sidebar ---------- */
 
 .book-summary {
-  background: var(--as-panel) !important;
+  background: var(--as-sidebar-bg) !important;
   border-right: 1px solid var(--as-line) !important;
+  box-shadow: 12px 0 40px rgba(26, 26, 28, 0.06) !important;
+  z-index: 3;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
 }
 
-.book-summary ul.summary li a {
+html[data-theme="dark"] .book-summary,
+.book.color-theme-2 .book-summary {
+  box-shadow: 16px 0 48px rgba(0, 0, 0, 0.45) !important;
+}
+
+.book-summary::-webkit-scrollbar {
+  width: 8px;
+}
+
+.book-summary::-webkit-scrollbar-thumb {
+  background: var(--as-line-strong);
+  border-radius: 999px;
+}
+
+/* Sticky logo strip — nav scrolls underneath */
+.as-brand-bar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  padding: 0.85rem 1rem 0.65rem;
+  margin: 0;
+  background:
+    linear-gradient(180deg, rgba(244, 244, 245, 0.98) 0%, rgba(244, 244, 245, 0.92) 70%, transparent 100%),
+    var(--as-sidebar-bg);
+  backdrop-filter: blur(12px) saturate(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+}
+
+html[data-theme="dark"] .as-brand-bar,
+.book.color-theme-2 .as-brand-bar {
+  background:
+    linear-gradient(180deg, rgba(22, 22, 31, 0.98) 0%, rgba(22, 22, 31, 0.92) 70%, transparent 100%),
+    var(--as-sidebar-bg);
+}
+
+.as-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.85rem 0.9rem;
+  border-radius: var(--as-radius);
+  text-decoration: none !important;
+  color: var(--as-ink) !important;
+  background: var(--as-panel);
+  border: 1px solid var(--as-line);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 10px 28px rgba(26, 26, 28, 0.08);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+html[data-theme="dark"] .as-brand,
+.book.color-theme-2 .as-brand {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 14px 36px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(139, 124, 247, 0.1);
+}
+
+.as-brand:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--as-shadow);
+  border-color: color-mix(in srgb, var(--as-accent-2) 45%, transparent);
+}
+
+.as-brand-mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 30% 30%, var(--as-accent-glow), transparent 55%),
+    var(--as-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--as-line);
+}
+
+.as-brand-mark img {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+.as-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.as-brand-name {
+  font-family: var(--as-font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.as-brand-tag {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--as-accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.book-summary ul.summary {
+  padding-bottom: 2rem !important;
+}
+
+.book-summary ul.summary li a,
+.book-summary ul.summary li span {
   color: var(--as-muted) !important;
   border-left: 3px solid transparent;
-  padding-top: 8px !important;
-  padding-bottom: 8px !important;
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+  border-radius: 0 8px 8px 0;
+  font-size: 0.9375rem !important;
+  line-height: 1.4 !important;
+  font-weight: 500 !important;
   transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
@@ -77,22 +281,238 @@ body,
 .book-summary ul.summary li.active > a {
   color: var(--as-accent-strong) !important;
   background: var(--as-accent-soft) !important;
-  border-left-color: var(--as-accent);
-  font-weight: 600;
+  border-left-color: var(--as-accent-2);
+  font-weight: 650 !important;
 }
 
 .book-summary ul.summary li.header {
   color: var(--as-ink) !important;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: 11px !important;
+  letter-spacing: 0.08em;
+  font-size: 0.6875rem !important;
   font-weight: 700 !important;
-  margin-top: 18px !important;
+  margin-top: 1.15rem !important;
+  opacity: 0.72;
+}
+
+.book-summary ul.summary li.divider {
+  background: var(--as-line) !important;
+  height: 1px !important;
+}
+
+.book-summary #book-search-input {
+  display: none !important;
+}
+
+/* ---------- Header ---------- */
+
+.book-header.as-header,
+.book-header {
+  display: flex !important;
+  align-items: center;
+  gap: 0.55rem;
+  height: 64px !important;
+  padding: 0 0.75rem !important;
+  background: var(--as-header-bg) !important;
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  border-bottom: 1px solid var(--as-line) !important;
+  box-shadow: 0 8px 24px rgba(26, 26, 28, 0.05);
+  overflow: visible !important;
+  z-index: 30 !important;
+  position: sticky !important;
+  top: 0 !important;
+}
+
+html[data-theme="dark"] .book-header.as-header,
+html[data-theme="dark"] .book-header,
+.book.color-theme-2 .book-header {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+/* Kill legacy GitBook absolute/float header layout */
+.book-header h1,
+.book-header .btn,
+.book-header .dropdown {
+  position: static !important;
+  float: none !important;
+  right: auto !important;
+  left: auto !important;
+  top: auto !important;
+}
+
+.book-header.as-header {
+  display: flex !important;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.book-header > .btn.pull-left {
+  order: 0;
+  flex: 0 0 auto;
+}
+
+.as-header-actions-leading {
+  order: 1;
+  margin-left: 0;
+}
+
+.as-header-left {
+  order: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 20%;
+}
+
+.as-header-search {
+  order: 3;
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: stretch;
+  min-width: 160px;
+  max-width: 520px;
+  margin: 0 0.75rem;
+}
+
+.as-header-actions-trailing {
+  order: 4;
+  margin-left: auto;
+}
+
+.as-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+}
+
+.book-header > .btn.pull-right {
+  order: 5;
+  flex: 0 0 auto;
+}
+
+.as-page-title {
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 0.875rem !important;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.as-page-title a {
+  color: var(--as-ink) !important;
+  text-decoration: none !important;
+  font-family: var(--as-font-display);
+  letter-spacing: -0.02em;
+}
+
+.book-header .btn {
+  color: var(--as-muted) !important;
+  height: 40px !important;
+  line-height: 40px !important;
+  border-radius: 10px !important;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.book-header .btn:hover {
+  color: var(--as-accent-strong) !important;
+  background: var(--as-accent-soft) !important;
+}
+
+/* Prefer our theme toggle — hide GitBook White/Sepia/Night + Serif/Sans */
+.book-header .font-settings {
+  display: none !important;
+}
+
+#book-search-input {
+  width: 100%;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+#book-search-input input {
+  width: 100%;
+  height: 42px;
+  padding: 0 1rem 0 2.55rem !important;
+  border-radius: 999px !important;
+  border: 1px solid var(--as-line-strong) !important;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='none' stroke='%235c5c66' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='8' cy='8' r='5.5'/%3E%3Cpath d='M12.5 12.5 16 16'/%3E%3C/svg%3E")
+    0.95rem 50% / 16px no-repeat,
+    var(--as-panel) !important;
+  color: var(--as-ink) !important;
+  box-shadow: var(--as-shadow-sm);
+  font-family: var(--as-font-body) !important;
+  font-size: 0.9375rem !important;
+  outline: none !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+html[data-theme="dark"] #book-search-input input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='none' stroke='%239b9aa6' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='8' cy='8' r='5.5'/%3E%3Cpath d='M12.5 12.5 16 16'/%3E%3C/svg%3E");
+}
+
+#book-search-input input::placeholder {
+  color: var(--as-muted);
   opacity: 0.85;
 }
 
+#book-search-input input:focus {
+  border-color: var(--as-accent-2) !important;
+  box-shadow: 0 0 0 3px var(--as-accent-soft), var(--as-shadow-sm);
+}
+
+.as-theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--as-line-strong);
+  background: var(--as-panel);
+  color: var(--as-ink);
+  cursor: pointer;
+  box-shadow: var(--as-shadow-sm);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.as-theme-toggle:hover {
+  transform: translateY(-1px);
+  border-color: var(--as-accent-2);
+  box-shadow: var(--as-shadow);
+  color: var(--as-accent-strong);
+}
+
+.as-theme-toggle:focus-visible {
+  outline: 2px solid var(--as-accent-2);
+  outline-offset: 2px;
+}
+
+.as-theme-icon {
+  display: none;
+  line-height: 0;
+}
+
+html[data-theme="light"] .as-theme-icon-moon,
+html:not([data-theme]) .as-theme-icon-moon {
+  display: block;
+}
+
+html[data-theme="dark"] .as-theme-icon-sun {
+  display: block;
+}
+
+/* ---------- Page body ---------- */
+
 .book-body {
-  background: var(--as-surface) !important;
+  background: transparent !important;
 }
 
 .book-body .body-inner,
@@ -100,150 +520,698 @@ body,
   background: transparent !important;
 }
 
+.as-page-inner,
+.page-inner {
+  max-width: 46rem !important; /* ~736px at 16px — comfortable measure */
+  padding: 0 0.5rem !important;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section,
 .markdown-section {
   color: var(--as-ink) !important;
-  max-width: 780px;
-  line-height: 1.7;
+  font-size: var(--as-prose) !important;
+  line-height: 1.75 !important;
+  letter-spacing: 0.005em;
+  padding: 1.75rem 1.25rem 1.5rem !important;
+  max-width: 100%;
+}
+
+.markdown-section > * {
+  position: relative;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section p,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section li,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section td,
+.markdown-section p,
+.markdown-section li,
+.markdown-section td {
+  color: var(--as-ink) !important;
+  font-size: 1em !important;
+  line-height: 1.75 !important;
+}
+
+.markdown-section p {
+  margin: 0 0 1.05em !important;
+}
+
+.markdown-section ul,
+.markdown-section ol {
+  margin: 0.35em 0 1.15em !important;
+  padding-left: 1.35em !important;
+}
+
+.markdown-section li + li {
+  margin-top: 0.35em;
+}
+
+.markdown-section strong,
+.markdown-section b {
+  color: var(--as-ink) !important;
+  font-weight: 700 !important;
 }
 
 .markdown-section h1,
 .markdown-section h2,
-.markdown-section h3 {
+.markdown-section h3,
+.markdown-section h4 {
   font-family: var(--as-font-display) !important;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   color: var(--as-ink) !important;
+  line-height: 1.25 !important;
+  font-weight: 750 !important;
 }
 
 .markdown-section h1 {
-  font-size: 2.25rem !important;
-  margin-bottom: 0.6rem !important;
+  font-size: 2rem !important; /* 32px */
+  margin: 0 0 0.65rem !important;
+  color: var(--as-ink) !important;
 }
 
+.markdown-section h1 .as-grad,
+.markdown-section h1 em {
+  font-style: normal;
+  background: var(--as-accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Lead under title — readable secondary, not tiny muted */
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section h1 + p,
 .markdown-section h1 + p {
-  font-size: 1.125rem;
-  color: var(--as-muted);
-  margin-top: 0;
+  font-size: 1.125rem !important; /* 18px */
+  line-height: 1.6 !important;
+  color: var(--as-muted) !important;
+  margin: 0 0 1.5rem !important;
+  font-weight: 500 !important;
+  max-width: 40rem;
+}
+
+.markdown-section h2 {
+  font-size: 1.375rem !important; /* 22px */
+  margin-top: 2.1rem !important;
+  margin-bottom: 0.75rem !important;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--as-line);
+  color: var(--as-ink) !important;
+}
+
+.markdown-section h2::after {
+  content: "";
+  display: block;
+  width: 2.5rem;
+  height: 3px;
+  margin-top: 0.45rem;
+  border-radius: 999px;
+  background: var(--as-accent-grad);
+}
+
+.markdown-section h3 {
+  font-size: 1.125rem !important; /* 18px */
+  margin-top: 1.6rem !important;
+  margin-bottom: 0.55rem !important;
+  color: var(--as-ink) !important;
+}
+
+.markdown-section h4 {
+  font-size: 1rem !important;
+  margin-top: 1.35rem !important;
+  margin-bottom: 0.4rem !important;
+  color: var(--as-muted) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700 !important;
+}
+
+html[data-theme="dark"] .markdown-section h2,
+.book.color-theme-2 .markdown-section h2 {
+  color: var(--as-ink) !important;
 }
 
 .markdown-section a {
   color: var(--as-accent-strong) !important;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
 }
 
-.markdown-section code,
-.markdown-section pre {
+.markdown-section a:hover {
+  color: var(--as-accent-2) !important;
+}
+
+.markdown-section code {
   font-family: var(--as-font-mono) !important;
-  border-radius: 8px !important;
+  font-size: 0.9em !important;
+  background: var(--as-accent-soft) !important;
+  color: var(--as-accent-strong) !important;
+  border-radius: 6px !important;
+  padding: 0.14em 0.42em !important;
+  font-weight: 500 !important;
 }
 
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre,
 .markdown-section pre {
-  background: #0b1220 !important;
-  box-shadow: var(--as-shadow);
+  position: relative !important;
+  background: var(--as-code-bg) !important;
+  border: 1px solid var(--as-code-border) !important;
+  border-radius: var(--as-radius) !important;
+  box-shadow: var(--as-shadow-sm);
+  padding: 1.1rem 3rem 1.1rem 1.2rem !important;
+  overflow-x: auto !important;
+  color: var(--as-code-fg) !important;
 }
 
-.markdown-section table {
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre code,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre code.hljs,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section code.hljs,
+.book .book-body .page-wrapper .page-inner section.normal pre .hljs,
+.book .book-body .page-wrapper .page-inner section.normal code .hljs,
+.book.color-theme-2 .book-body .page-wrapper .page-inner section.normal pre .hljs,
+.book.color-theme-2 .book-body .page-wrapper .page-inner section.normal code .hljs,
+.markdown-section pre code,
+.markdown-section pre > code.hljs {
+  display: block !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: var(--as-code-fg) !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font-family: var(--as-font-mono) !important;
+  line-height: 1.65 !important;
+  overflow: visible !important;
+}
+
+/* Theme-aware highlight tokens — beat honkit-plugin-highlight specificity */
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-keyword,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-selector-tag,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-literal,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-section,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-link,
+.markdown-section pre .hljs-keyword,
+.markdown-section pre .hljs-selector-tag,
+.markdown-section pre .hljs-literal,
+.markdown-section pre .hljs-section,
+.markdown-section pre .hljs-link {
+  color: var(--as-hljs-keyword) !important;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-string,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-title,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-name,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-type,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-attribute,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-symbol,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-bullet,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-addition,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-variable,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-template-tag,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-template-variable,
+.markdown-section pre .hljs-string,
+.markdown-section pre .hljs-title,
+.markdown-section pre .hljs-name,
+.markdown-section pre .hljs-type,
+.markdown-section pre .hljs-attribute,
+.markdown-section pre .hljs-symbol,
+.markdown-section pre .hljs-bullet,
+.markdown-section pre .hljs-addition,
+.markdown-section pre .hljs-variable,
+.markdown-section pre .hljs-template-tag,
+.markdown-section pre .hljs-template-variable {
+  color: var(--as-hljs-string) !important;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-comment,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-quote,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-deletion,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-meta,
+.markdown-section pre .hljs-comment,
+.markdown-section pre .hljs-quote,
+.markdown-section pre .hljs-deletion,
+.markdown-section pre .hljs-meta {
+  color: var(--as-hljs-comment) !important;
+  font-style: italic;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-number,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-regexp,
+.markdown-section pre .hljs-number,
+.markdown-section pre .hljs-regexp {
+  color: var(--as-hljs-number) !important;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-built_in,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-builtin-name,
+.markdown-section pre .hljs-built_in,
+.markdown-section pre .hljs-builtin-name {
+  color: var(--as-hljs-built) !important;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-attr,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-selector-attr,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-selector-pseudo,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-selector-id,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section pre .hljs-selector-class,
+.markdown-section pre .hljs-attr,
+.markdown-section pre .hljs-selector-attr,
+.markdown-section pre .hljs-selector-pseudo,
+.markdown-section pre .hljs-selector-id,
+.markdown-section pre .hljs-selector-class {
+  color: var(--as-hljs-attr) !important;
+}
+
+/* Modern copy control — overrides plugin inline styles */
+.markdown-section pre .copy-code-button,
+button.copy-code-button {
+  position: absolute !important;
+  top: 0.65rem !important;
+  right: 0.65rem !important;
+  z-index: 2;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 2rem !important;
+  height: 2rem !important;
+  min-width: 2rem !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 10px !important;
+  border: 1px solid var(--as-code-btn-border) !important;
+  background: var(--as-code-btn-bg) !important;
+  color: var(--as-code-btn-fg) !important;
+  box-shadow: var(--as-shadow-sm) !important;
+  cursor: pointer;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  letter-spacing: 0 !important;
+  text-indent: 0 !important;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.markdown-section pre .copy-code-button:hover,
+button.copy-code-button:hover {
+  background: var(--as-code-btn-hover) !important;
+  color: var(--as-accent-strong) !important;
+  border-color: color-mix(in srgb, var(--as-accent-2) 40%, transparent) !important;
+  transform: translateY(-1px);
+}
+
+.markdown-section pre .copy-code-button:focus-visible,
+button.copy-code-button:focus-visible {
+  outline: 2px solid var(--as-accent-2);
+  outline-offset: 2px;
+}
+
+.markdown-section pre .copy-code-button svg,
+button.copy-code-button svg {
+  width: 15px;
+  height: 15px;
   display: block;
-  overflow-x: auto;
-  border-collapse: collapse;
-  width: 100%;
+  pointer-events: none;
 }
 
+.markdown-section pre .copy-code-button.is-copied,
+button.copy-code-button.is-copied {
+  color: #2f9e6b !important;
+  border-color: rgba(47, 158, 107, 0.35) !important;
+}
+
+/* Tables — keep real table layout so columns fill width (no side white gap) */
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section .as-table-scroll,
+.markdown-section .as-table-scroll {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--as-line);
+  border-radius: var(--as-radius-sm);
+  box-shadow: var(--as-shadow-sm);
+  background: var(--as-panel);
+  -webkit-overflow-scrolling: touch;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section table,
+.markdown-section table {
+  display: table !important;
+  width: 100% !important;
+  max-width: 100%;
+  table-layout: auto;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: var(--as-panel) !important;
+  margin: 0 !important;
+  overflow: visible !important;
+}
+
+.markdown-section > table {
+  border: 1px solid var(--as-line) !important;
+  border-radius: var(--as-radius-sm) !important;
+  box-shadow: var(--as-shadow-sm) !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  overflow: hidden !important;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section table thead,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section table tbody,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section table tr,
+.markdown-section table thead,
+.markdown-section table tbody,
+.markdown-section table tr {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section table th,
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section table td,
 .markdown-section table th,
 .markdown-section table td {
   border-color: var(--as-line) !important;
+  border-width: 0 0 1px !important;
+  padding: 0.75rem 0.95rem !important;
+  background: var(--as-panel) !important;
+  background-color: var(--as-panel) !important;
+  color: var(--as-ink) !important;
+  vertical-align: top;
+  font-size: 0.98em !important;
+  line-height: 1.55 !important;
+}
+
+/* Give label columns a stable share; prose columns take the rest */
+.markdown-section table th:first-child,
+.markdown-section table td:first-child {
+  width: 34%;
+  font-weight: 600;
+  white-space: normal;
+}
+
+.markdown-section table tr:last-child td {
+  border-bottom: none !important;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section table th,
+.markdown-section table th {
+  background: var(--as-accent-soft) !important;
+  background-color: var(--as-accent-soft) !important;
+  color: var(--as-ink) !important;
+  font-weight: 650;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section table tr:nth-child(2n),
+.markdown-section table tr:nth-child(2n) {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal.markdown-section table tr:nth-child(2n) td,
+.markdown-section table tr:nth-child(2n) td {
+  background: color-mix(in srgb, var(--as-panel-elevated) 85%, var(--as-panel)) !important;
+  background-color: color-mix(in srgb, var(--as-panel-elevated) 85%, var(--as-panel)) !important;
 }
 
 .markdown-section blockquote {
-  border-left: 4px solid var(--as-accent) !important;
+  border-left: 4px solid var(--as-accent-2) !important;
   background: var(--as-accent-soft);
-  border-radius: 0 var(--as-radius) var(--as-radius) 0;
+  border-radius: 0 var(--as-radius-sm) var(--as-radius-sm) 0;
   color: var(--as-ink) !important;
+  box-shadow: var(--as-shadow-sm);
+  padding: 0.85rem 1rem !important;
+  margin: 1.15rem 0 !important;
 }
 
-/* Hero callout used on the welcome page */
-.as-hero {
-  display: block;
-  padding: 1.25rem 1.4rem;
-  margin: 1.25rem 0 1.75rem;
-  border: 1px solid var(--as-line);
-  border-radius: var(--as-radius);
-  background:
-    radial-gradient(1200px 200px at 10% -40%, var(--as-accent-soft), transparent 60%),
-    var(--as-panel);
-  box-shadow: var(--as-shadow);
+.markdown-section blockquote p {
+  margin-bottom: 0.4em !important;
 }
 
-.as-hero strong {
-  color: var(--as-accent-strong);
+.markdown-section blockquote p:last-child {
+  margin-bottom: 0 !important;
 }
 
-.as-pill-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 1rem 0 1.5rem;
-}
-
-.as-pill {
-  display: inline-block;
-  padding: 0.28rem 0.7rem;
-  border-radius: 999px;
-  background: var(--as-accent-soft);
-  color: var(--as-accent-strong);
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.book-header {
-  background: rgba(248, 250, 252, 0.85) !important;
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--as-line);
-}
-
-.book.color-theme-2 .book-header {
-  background: rgba(11, 18, 32, 0.85) !important;
-}
-
-#book-search-input {
-  border-radius: 8px !important;
+/* flexible-alerts / callouts — theme-aware, readable */
+.markdown-section .alert,
+.markdown-section .hint {
+  border-radius: var(--as-radius-sm) !important;
+  box-shadow: var(--as-shadow-sm);
   border: 1px solid var(--as-line) !important;
   background: var(--as-panel) !important;
+  color: var(--as-ink) !important;
+  padding: 0.95rem 1.1rem !important;
+  margin: 1.15rem 0 !important;
+  font-size: 0.98em !important;
+  line-height: 1.65 !important;
 }
 
-#book-search-input input {
-  background: transparent !important;
+.markdown-section .alert .title,
+.markdown-section .hint .title {
+  color: var(--as-ink) !important;
+  font-weight: 700 !important;
+  font-family: var(--as-font-display) !important;
+  font-size: 0.95em !important;
+  margin-bottom: 0.35rem !important;
+}
+
+.markdown-section .alert p,
+.markdown-section .hint p,
+.markdown-section .alert,
+.markdown-section .hint {
   color: var(--as-ink) !important;
 }
 
-#book-search-results .search-results {
-  background: var(--as-panel);
+.markdown-section .alert.tip,
+.markdown-section .hint.tip {
+  border-left: 4px solid #2f9e6b !important;
+  background: color-mix(in srgb, #2f9e6b 8%, var(--as-panel)) !important;
 }
+
+.markdown-section .alert.note,
+.markdown-section .hint.note,
+.markdown-section .alert.info {
+  border-left: 4px solid var(--as-accent-2) !important;
+  background: color-mix(in srgb, var(--as-accent-2) 8%, var(--as-panel)) !important;
+}
+
+.markdown-section .alert.warning,
+.markdown-section .hint.warning {
+  border-left: 4px solid #c9862a !important;
+  background: color-mix(in srgb, #c9862a 10%, var(--as-panel)) !important;
+}
+
+.markdown-section .alert.danger,
+.markdown-section .hint.danger {
+  border-left: 4px solid #c44b4b !important;
+  background: color-mix(in srgb, #c44b4b 10%, var(--as-panel)) !important;
+}
+
+/* ---------- Side chevrons ---------- */
 
 .navigation {
   color: var(--as-muted) !important;
+  text-shadow: none !important;
+  opacity: 0.45;
+  transition: opacity 0.15s ease, color 0.15s ease;
 }
 
 .navigation:hover {
   color: var(--as-accent-strong) !important;
+  opacity: 1;
 }
 
-/* Responsive */
+/* Back-to-top — match theme */
+body .fa.fa-arrow-up,
+body .back-to-top {
+  color: var(--as-ink) !important;
+}
+
+div[class*="back-to-top"],
+.back-to-top-button {
+  background: var(--as-panel) !important;
+  border: 1px solid var(--as-line-strong) !important;
+  color: var(--as-ink) !important;
+  box-shadow: var(--as-shadow) !important;
+  border-radius: 12px !important;
+}
+
+/* ---------- GitBook-style footer prev/next ---------- */
+
+.as-page-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+  margin: 1.25rem 0 3rem;
+  padding: 1.5rem 0 0;
+  border-top: 1px solid var(--as-line);
+}
+
+.as-page-nav-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1.15rem 1.25rem;
+  border-radius: var(--as-radius);
+  border: 1px solid var(--as-line-strong);
+  background: var(--as-panel);
+  box-shadow: var(--as-shadow-sm);
+  text-decoration: none !important;
+  color: var(--as-ink) !important;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.as-page-nav-link::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--as-accent-grad);
+  opacity: 0.85;
+}
+
+.as-page-nav-next::before {
+  inset: 0 0 0 auto;
+}
+
+.as-page-nav-link:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--as-accent-2) 45%, transparent);
+  box-shadow: var(--as-shadow);
+}
+
+.as-page-nav-link:focus-visible {
+  outline: 2px solid var(--as-accent-2);
+  outline-offset: 2px;
+}
+
+.as-page-nav-prev {
+  align-items: flex-start;
+  grid-column: 1;
+}
+
+.as-page-nav-next {
+  align-items: flex-end;
+  text-align: right;
+  grid-column: 2;
+}
+
+.as-page-nav-next.as-page-nav-only,
+.as-page-nav-prev.as-page-nav-only {
+  grid-column: 1 / -1;
+}
+
+.as-page-nav-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--as-muted);
+}
+
+.as-page-nav-title {
+  font-family: var(--as-font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+  color: var(--as-ink);
+}
+
+.as-page-nav-link:hover .as-page-nav-label {
+  color: var(--as-accent-strong);
+}
+
+.as-page-nav-link:hover .as-page-nav-title {
+  color: var(--as-accent-2);
+}
+
+/* ---------- Search results ---------- */
+
+#book-search-results .search-results {
+  background: transparent;
+}
+
+#book-search-results .search-results-item {
+  padding: 1rem 1.1rem;
+  margin-bottom: 0.85rem;
+  border-radius: var(--as-radius-sm);
+  background: var(--as-panel);
+  border: 1px solid var(--as-line);
+  box-shadow: var(--as-shadow-sm);
+}
+
+#book-search-results .search-results-item a {
+  color: var(--as-accent-strong) !important;
+  font-family: var(--as-font-display);
+  font-weight: 700;
+}
+
+/* ---------- Mobile ---------- */
+
 @media (max-width: 900px) {
+  .as-header-left {
+    max-width: 34%;
+  }
+
+  .as-page-title {
+    display: none;
+  }
+
+  .as-header-search {
+    max-width: none;
+  }
+
   .markdown-section {
-    padding-left: 12px !important;
-    padding-right: 12px !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
   }
 
   .markdown-section h1 {
-    font-size: 1.75rem !important;
+    font-size: 1.65rem !important;
   }
 
-  .as-hero {
-    padding: 1rem;
+  .markdown-section h2 {
+    font-size: 1.25rem !important;
+  }
+
+  .markdown-section h1 + p {
+    font-size: 1.05rem !important;
   }
 }
 
 @media (max-width: 600px) {
-  .book-summary {
-    width: calc(100vw - 40px) !important;
+  .book-header.as-header {
+    height: auto !important;
+    min-height: 56px;
+    flex-wrap: wrap;
+    padding: 0.45rem 0.55rem !important;
+    gap: 0.45rem;
+  }
+
+  .as-header-search {
+    order: 3;
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .as-brand-bar {
+    padding: 0.65rem 0.75rem 0.5rem;
+  }
+
+  .as-page-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .as-page-nav-prev,
+  .as-page-nav-next,
+  .as-page-nav-next.as-page-nav-only,
+  .as-page-nav-prev.as-page-nav-only {
+    grid-column: 1;
+    align-items: flex-start;
+    text-align: left;
   }
 }

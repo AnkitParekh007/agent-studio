@@ -6,3 +6,4 @@ README-BUILD.md
 .gitignore
 *.pdf
 .DS_Store
+styles/references/
