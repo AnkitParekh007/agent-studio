@@ -89,16 +89,18 @@
             <div class="as-brand-bar">
                 <a class="as-brand" href="{{ "/"|resolveFile }}">
                     <span class="as-brand-mark" aria-hidden="true">
+                        <span class="as-brand-pulse"></span>
                         <img src="{{ "assets/logo.svg"|resolveFile }}" width="36" height="36" alt="" />
                     </span>
                     <span class="as-brand-text">
                         <span class="as-brand-name">Agent Studio</span>
                         <span class="as-brand-tag">Docs</span>
                     </span>
+                    <span class="as-brand-signal" aria-hidden="true"></span>
                 </a>
             </div>
             {% block book_summary %}
-                <nav role="navigation">
+                <nav class="as-nav" role="navigation">
                 {% include "website/summary.html" %}
                 </nav>
             {% endblock %}
