@@ -3,14 +3,14 @@ name: Capture Public Proof
 on:
   workflow_dispatch:
   push:
-    branches: [main, 'agent/final-visual-proof']
+    branches: [main]
     paths:
       - 'scripts/capture-public-proof.cjs'
       - 'docs/assets/public-proof/governed-lifecycle-proof.svg'
       - '.github/workflows/capture-public-proof.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   capture-handbook:
@@ -43,15 +43,12 @@ jobs:
           CAPTURE_OUTPUT_DIR: ${{ runner.temp }}/public-proof-captures
         run: node scripts/capture-public-proof.cjs
 
-      - name: Render governed lifecycle proof and stage handbook screenshot
+      - name: Render governed lifecycle proof
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p docs/assets/public-proof
-          rsvg-convert -w 1200 -h 680 docs/assets/public-proof/governed-lifecycle-proof.svg > docs/assets/public-proof/governed-lifecycle-proof.png
-          cp '${{ runner.temp }}/public-proof-captures/agent-studio-handbook-home.png' docs/assets/public-proof/handbook-home.png
-          test -s docs/assets/public-proof/governed-lifecycle-proof.png
-          test -s docs/assets/public-proof/handbook-home.png
+          rsvg-convert -w 1200 -h 680 docs/assets/public-proof/governed-lifecycle-proof.svg > '${{ runner.temp }}/governed-lifecycle-proof.png'
+          test -s '${{ runner.temp }}/governed-lifecycle-proof.png'
 
       - name: Upload governance proof assets
         uses: actions/upload-artifact@v4
@@ -59,19 +56,6 @@ jobs:
           name: agent-studio-public-proof
           path: |
             ${{ runner.temp }}/public-proof-captures
-            docs/assets/public-proof/governed-lifecycle-proof.svg
-            docs/assets/public-proof/governed-lifecycle-proof.png
-            docs/assets/public-proof/handbook-home.png
+            ${{ runner.temp }}/governed-lifecycle-proof.png
           if-no-files-found: error
           retention-days: 30
-
-      - name: Commit generated final assets to generation branch
-        if: ${{ github.ref_name == 'agent/final-visual-proof' }}
-        shell: bash
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/assets/public-proof/governed-lifecycle-proof.png docs/assets/public-proof/handbook-home.png
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Add governed lifecycle public proof assets [skip ci]'
-          git push origin HEAD:${GITHUB_REF_NAME}
