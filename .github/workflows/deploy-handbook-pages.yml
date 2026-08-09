@@ -1,0 +1,68 @@
+name: Deploy Handbook to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'handbook/**'
+      - '.github/workflows/deploy-handbook-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: handbook-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: handbook/package-lock.json
+
+      - name: Install handbook dependencies
+        working-directory: handbook
+        run: npm ci
+
+      - name: Build HonKit handbook
+        working-directory: handbook
+        run: npm run build
+
+      - name: Verify handbook entry point
+        run: test -f handbook/_book/index.html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload handbook artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: handbook/_book
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy handbook
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Smoke test published handbook
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          curl --fail --silent --show-error --location --retry 6 --retry-all-errors --retry-delay 5 "$PAGE_URL" >/dev/null

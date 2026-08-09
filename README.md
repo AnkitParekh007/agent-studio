@@ -4,7 +4,7 @@ Enterprise Agent Application Factory: define an agent once, govern it centrally,
 
 Claude Managed Agents is the first execution provider. The domain model stays provider-neutral through an `AgentRuntimeAdapter` boundary.
 
-**[Public proof](docs/public-proof.md)** · **[Handbook](handbook/)** · **[Engineering docs](docs/)** · **[Roadmap](docs/roadmap.md)**
+**[Live handbook](https://ankitparekh007.github.io/agent-studio/)** · **[Public proof](docs/public-proof.md)** · **[Engineering docs](docs/)** · **[Roadmap](docs/roadmap.md)**
 
 ## Review This Repo In 30 Seconds
 
@@ -20,7 +20,7 @@ Three things distinguish this from a generic agent builder:
 - provisioning retries and asynchronous callbacks are idempotent, attempt-aware, signed, and replay-protected;
 - publication/runtime access is checked against version and agent lifecycle state before use.
 
-Use [Public Proof](docs/public-proof.md) for a 30-second / 3-minute / 15-minute evaluation path.
+Use the [live handbook](https://ankitparekh007.github.io/agent-studio/) for the fastest hosted architecture review and [Public Proof](docs/public-proof.md) for the 30-second / 3-minute / 15-minute evaluation path.
 
 ## Governance Proof Points
 
@@ -85,9 +85,9 @@ Default seed users (development only):
 
 ## Public Demo Strategy
 
-There is intentionally no claim that this repository is a hosted production SaaS.
+The public hosted surface is the **static HonKit handbook**, not a claim that the full Agent Studio control plane is running as a public SaaS.
 
-For public proof, use the local deterministic runtime and focus the walkthrough on governance states:
+For runtime proof, use the local deterministic runtime and focus the walkthrough on governance states:
 
 1. define or inspect an agent;
 2. create a new immutable version;
@@ -101,9 +101,12 @@ See [docs/public-proof.md](docs/public-proof.md) for the exact reviewer and scre
 
 ## Documentation
 
+- **Live handbook (GitHub Pages):** [ankitparekh007.github.io/agent-studio](https://ankitparekh007.github.io/agent-studio/)
 - **Public proof:** [`docs/public-proof.md`](docs/public-proof.md)
-- **Handbook (HonKit / GitHub Pages):** [`handbook/`](handbook/) — run `pnpm docs:install && pnpm docs:dev`
+- **Handbook source:** [`handbook/`](handbook/) — run `pnpm docs:install && pnpm docs:dev`
 - **Engineering docs:** [`docs/`](docs/) — product vision, architecture, security, local setup, testing, deployment, and roadmap
+
+The Pages deployment builds the HonKit handbook on pushes that change handbook content and performs a post-deploy HTTP smoke check. A green deployment proves that the hosted documentation surface is reachable; it does not imply that the local/full-stack runtime is publicly hosted.
 
 ## Production package
 
@@ -134,6 +137,7 @@ See [`docs/operations/deployment.md`](docs/operations/deployment.md).
 
 | Surface | Status |
 | --- | --- |
+| public HonKit handbook | static hosted documentation |
 | local deterministic runtime | demo/development only |
 | immutable version policy | real portable domain policy |
 | provisioning retries/idempotency | real portable domain policy |

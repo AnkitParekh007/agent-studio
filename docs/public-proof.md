@@ -2,11 +2,11 @@
 
 `Agent Studio` is the governance/control-plane layer of the portfolio. It is designed to prove that an agent application platform needs more than a chat runtime: immutable versions, review and approval, provisioning state, publication grants, revocation, replay-resistant callbacks, and provider-neutral runtime boundaries all matter.
 
-There is intentionally no claim of a public production SaaS deployment. Public proof comes from the runnable local stack, deterministic local runtime, lifecycle policy, tests, and documented production boundaries.
+The public hosted surface is a static architecture handbook at `https://ankitparekh007.github.io/agent-studio/`. There is intentionally no claim that the full control plane is running as a public production SaaS. Runtime proof comes from the runnable local stack, deterministic local runtime, lifecycle policy, tests, and documented production boundaries.
 
 ## 30-second review
 
-Read these ideas first:
+Start with the [live handbook](https://ankitparekh007.github.io/agent-studio/), then read these ideas:
 
 1. **Define once, publish many ways** — web, desktop, embedded copilot, or API.
 2. **Only the current approved immutable version is runnable.**
@@ -67,6 +67,12 @@ pnpm build
 pnpm smoke:governance
 ```
 
+## Deployment proof
+
+The static handbook is built from `handbook/` with HonKit and deployed through GitHub Pages. The deployment workflow verifies that `handbook/_book/index.html` exists before upload and performs a retrying HTTP smoke check after Pages publishes the artifact.
+
+A green handbook deployment proves only that the documentation surface is reachable. It does **not** imply that the full Agent Studio runtime, control plane, worker, database, or provider integration is publicly hosted.
+
 ## Public demo sequence
 
 A short recruiter/architect walkthrough should focus on governance rather than generic chat:
@@ -96,6 +102,7 @@ If screenshots are captured, prioritize lifecycle states and review surfaces ove
 
 | Surface | Status |
 | --- | --- |
+| public HonKit handbook | static hosted documentation |
 | local deterministic runtime | development/demo only |
 | domain lifecycle rules | real portable application policy |
 | API signed-callback verification | real server-edge implementation |
