@@ -6,12 +6,20 @@ The public hosted surface is a static architecture handbook at `https://ankitpar
 
 ## 30-second review
 
-Start with the [live handbook](https://ankitparekh007.github.io/agent-studio/), then read these ideas:
+Start with the lifecycle proof board:
+
+![Governed agent lifecycle public architecture proof](assets/public-proof/governed-lifecycle-proof.png)
+
+The board is an architecture visualization of the repository's implemented version, provisioning, publication, and access-control rules. Its editable source is [`assets/public-proof/governed-lifecycle-proof.svg`](assets/public-proof/governed-lifecycle-proof.svg). It is deliberately **not** presented as a screenshot of a hosted production control plane.
+
+Then open the [live handbook](https://ankitparekh007.github.io/agent-studio/) and read these ideas:
 
 1. **Define once, publish many ways** — web, desktop, embedded copilot, or API.
 2. **Only the current approved immutable version is runnable.**
 3. **Provisioning and publication are governed state machines, not fire-and-forget scripts.**
 4. **Runtime providers sit behind `AgentRuntimeAdapter`, so governance is not tied to one model vendor.**
+
+A current screenshot of that hosted documentation surface is retained at [`assets/public-proof/handbook-home.png`](assets/public-proof/handbook-home.png).
 
 Then scan:
 
@@ -86,7 +94,7 @@ A short recruiter/architect walkthrough should focus on governance rather than g
 7. show that revoked or stale publication access is denied;
 8. finish at the runtime-provider adapter boundary.
 
-If screenshots are captured, prioritize lifecycle states and review surfaces over decorative chat screens.
+The lifecycle proof board above compresses those governance decisions into one reviewer-readable frame. When running the local stack, use the deterministic local runtime only where runtime output is needed and keep the hosted/static boundary explicit.
 
 ## Security proof points
 
@@ -103,6 +111,7 @@ If screenshots are captured, prioritize lifecycle states and review surfaces ove
 | Surface | Status |
 | --- | --- |
 | public HonKit handbook | static hosted documentation |
+| lifecycle proof board | generated visualization of implemented lifecycle/security policy |
 | local deterministic runtime | development/demo only |
 | domain lifecycle rules | real portable application policy |
 | API signed-callback verification | real server-edge implementation |
