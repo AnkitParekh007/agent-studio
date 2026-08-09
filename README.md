@@ -14,6 +14,12 @@ The shortest architecture story is:
 
 `agent definition → immutable version → review → approval → provisioning → publication → runtime access → revocation`
 
+<p align="center">
+  <img src="docs/assets/public-proof/governed-lifecycle-proof.png" alt="Agent Studio governed lifecycle public architecture proof" width="1000" />
+</p>
+
+<p align="center"><em>Lifecycle policy proof generated from the repository's implemented governance rules. The hosted handbook is static documentation; this image does not claim that the full control plane is a public production SaaS.</em></p>
+
 Three things distinguish this from a generic agent builder:
 
 - only the **current approved immutable version** is runnable;
@@ -97,7 +103,9 @@ For runtime proof, use the local deterministic runtime and focus the walkthrough
 6. show publication access checks and revocation;
 7. finish at the provider-neutral runtime adapter boundary.
 
-See [docs/public-proof.md](docs/public-proof.md) for the exact reviewer and screenshot sequence.
+The editable visual source is [`docs/assets/public-proof/governed-lifecycle-proof.svg`](docs/assets/public-proof/governed-lifecycle-proof.svg). A current hosted-handbook screenshot is also retained at [`docs/assets/public-proof/handbook-home.png`](docs/assets/public-proof/handbook-home.png).
+
+See [docs/public-proof.md](docs/public-proof.md) for the exact reviewer sequence.
 
 ## Documentation
 
@@ -138,6 +146,7 @@ See [`docs/operations/deployment.md`](docs/operations/deployment.md).
 | Surface | Status |
 | --- | --- |
 | public HonKit handbook | static hosted documentation |
+| lifecycle proof board | generated architecture visualization of implemented domain/API policy |
 | local deterministic runtime | demo/development only |
 | immutable version policy | real portable domain policy |
 | provisioning retries/idempotency | real portable domain policy |

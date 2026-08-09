@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/capture-public-proof.cjs'
+      - 'docs/assets/public-proof/governed-lifecycle-proof.svg'
       - '.github/workflows/capture-public-proof.yml'
 
 permissions:
@@ -31,6 +32,9 @@ jobs:
           npm install --no-audit --no-fund playwright@1.54.2
           npx playwright install --with-deps chromium
 
+      - name: Install SVG renderer
+        run: sudo apt-get update && sudo apt-get install -y librsvg2-bin
+
       - name: Capture hosted handbook
         env:
           NODE_PATH: /tmp/public-proof-playwright/node_modules
@@ -39,10 +43,19 @@ jobs:
           CAPTURE_OUTPUT_DIR: ${{ runner.temp }}/public-proof-captures
         run: node scripts/capture-public-proof.cjs
 
-      - name: Upload handbook proof captures
+      - name: Render governed lifecycle proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          rsvg-convert -w 1200 -h 680 docs/assets/public-proof/governed-lifecycle-proof.svg > '${{ runner.temp }}/governed-lifecycle-proof.png'
+          test -s '${{ runner.temp }}/governed-lifecycle-proof.png'
+
+      - name: Upload governance proof assets
         uses: actions/upload-artifact@v4
         with:
-          name: agent-studio-handbook-public-proof
-          path: ${{ runner.temp }}/public-proof-captures
+          name: agent-studio-public-proof
+          path: |
+            ${{ runner.temp }}/public-proof-captures
+            ${{ runner.temp }}/governed-lifecycle-proof.png
           if-no-files-found: error
           retention-days: 30
