@@ -3,13 +3,14 @@ name: Capture Public Proof
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, 'agent/final-visual-proof']
     paths:
       - 'scripts/capture-public-proof.cjs'
+      - 'docs/assets/public-proof/governed-lifecycle-proof.svg'
       - '.github/workflows/capture-public-proof.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   capture-handbook:
@@ -31,6 +32,9 @@ jobs:
           npm install --no-audit --no-fund playwright@1.54.2
           npx playwright install --with-deps chromium
 
+      - name: Install SVG renderer
+        run: sudo apt-get update && sudo apt-get install -y librsvg2-bin
+
       - name: Capture hosted handbook
         env:
           NODE_PATH: /tmp/public-proof-playwright/node_modules
@@ -39,10 +43,35 @@ jobs:
           CAPTURE_OUTPUT_DIR: ${{ runner.temp }}/public-proof-captures
         run: node scripts/capture-public-proof.cjs
 
-      - name: Upload handbook proof captures
+      - name: Render governed lifecycle proof and stage handbook screenshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs/assets/public-proof
+          rsvg-convert -w 1200 -h 680 docs/assets/public-proof/governed-lifecycle-proof.svg > docs/assets/public-proof/governed-lifecycle-proof.png
+          cp '${{ runner.temp }}/public-proof-captures/agent-studio-handbook-home.png' docs/assets/public-proof/handbook-home.png
+          test -s docs/assets/public-proof/governed-lifecycle-proof.png
+          test -s docs/assets/public-proof/handbook-home.png
+
+      - name: Upload governance proof assets
         uses: actions/upload-artifact@v4
         with:
-          name: agent-studio-handbook-public-proof
-          path: ${{ runner.temp }}/public-proof-captures
+          name: agent-studio-public-proof
+          path: |
+            ${{ runner.temp }}/public-proof-captures
+            docs/assets/public-proof/governed-lifecycle-proof.svg
+            docs/assets/public-proof/governed-lifecycle-proof.png
+            docs/assets/public-proof/handbook-home.png
           if-no-files-found: error
           retention-days: 30
+
+      - name: Commit generated final assets to generation branch
+        if: ${{ github.ref_name == 'agent/final-visual-proof' }}
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/assets/public-proof/governed-lifecycle-proof.png docs/assets/public-proof/handbook-home.png
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Add governed lifecycle public proof assets [skip ci]'
+          git push origin HEAD:${GITHUB_REF_NAME}
