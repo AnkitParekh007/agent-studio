@@ -4,6 +4,39 @@ Enterprise Agent Application Factory: define an agent once, govern it centrally,
 
 Claude Managed Agents is the first execution provider. The domain model stays provider-neutral through an `AgentRuntimeAdapter` boundary.
 
+**[Public proof](docs/public-proof.md)** · **[Handbook](handbook/)** · **[Engineering docs](docs/)** · **[Roadmap](docs/roadmap.md)**
+
+## Review This Repo In 30 Seconds
+
+Agent Studio is the **governance/control-plane** proof in this portfolio.
+
+The shortest architecture story is:
+
+`agent definition → immutable version → review → approval → provisioning → publication → runtime access → revocation`
+
+Three things distinguish this from a generic agent builder:
+
+- only the **current approved immutable version** is runnable;
+- provisioning retries and asynchronous callbacks are idempotent, attempt-aware, signed, and replay-protected;
+- publication/runtime access is checked against version and agent lifecycle state before use.
+
+Use [Public Proof](docs/public-proof.md) for a 30-second / 3-minute / 15-minute evaluation path.
+
+## Governance Proof Points
+
+The domain and API layers now enforce production-shaped lifecycle rules:
+
+- approving a waiting version supersedes the previous approved version without mutating historical records
+- stale, rejected, superseded, or otherwise non-current versions cannot start runtime sessions
+- provisioning uses stable agent/version/channel idempotency keys
+- failed provisioning retries create numbered attempts instead of ambiguous duplicate work
+- stale provisioning callbacks are rejected
+- HMAC-SHA256 callback verification is enforced at the API edge
+- callback freshness and callback-id replay protection are explicit
+- publication grants fail closed for revoked, superseded, stale-version, or terminated-agent conditions
+
+These are portable application rules, not UI-only checks.
+
 ## Quick start
 
 ```bash
@@ -32,9 +65,9 @@ Default seed users (development only):
 | `apps/control-plane-web` | Builder, playground, Application Studio, reviews |
 | `apps/agent-web-runtime` | Hosted published applications |
 | `apps/desktop-shell` | Tauri 2 desktop client (keychain session + gateway chat) |
-| `apps/api` | NestJS control plane + Agent Gateway |
+| `apps/api` | NestJS control plane + Agent Gateway + signed provisioning callback boundary |
 | `apps/worker` | BullMQ provision and background jobs |
-| `packages/domain` | Types, lifecycle/version state machines |
+| `packages/domain` | Types, lifecycle/version/provisioning/publication state policy |
 | `packages/database` | Drizzle schema, migrations, seed |
 | `packages/application-templates` | Studio templates + studioConfig schema |
 | `packages/auth` | Better Auth configuration |
@@ -50,8 +83,25 @@ Default seed users (development only):
 - `local` — deterministic streaming for demos. Requires `RUNTIME_ALLOW_LOCAL=true` and is **blocked in production**.
 - `claude` — Anthropic Managed Agents (`managed-agents-2026-04-01`). Requires `ANTHROPIC_API_KEY`. Fails closed if unset. Never falls back to local silently.
 
+## Public Demo Strategy
+
+There is intentionally no claim that this repository is a hosted production SaaS.
+
+For public proof, use the local deterministic runtime and focus the walkthrough on governance states:
+
+1. define or inspect an agent;
+2. create a new immutable version;
+3. move it through review/approval;
+4. explain superseding of the prior approved version;
+5. start provisioning and show attempt/idempotency policy;
+6. show publication access checks and revocation;
+7. finish at the provider-neutral runtime adapter boundary.
+
+See [docs/public-proof.md](docs/public-proof.md) for the exact reviewer and screenshot sequence.
+
 ## Documentation
 
+- **Public proof:** [`docs/public-proof.md`](docs/public-proof.md)
 - **Handbook (HonKit / GitHub Pages):** [`handbook/`](handbook/) — run `pnpm docs:install && pnpm docs:dev`
 - **Engineering docs:** [`docs/`](docs/) — product vision, architecture, security, local setup, testing, deployment, and roadmap
 
@@ -79,3 +129,21 @@ See [`docs/operations/deployment.md`](docs/operations/deployment.md).
 | `pnpm smoke` / `smoke:playground` / `smoke:application-studio` / `smoke:desktop` / `smoke:governance` | API smokes (stack must be running) |
 | `pnpm deploy:up` / `deploy:down` / `smoke:deploy` | Production Compose stack |
 | `pnpm desktop:dev` | Run Tauri desktop shell (requires Rust toolchain) |
+
+## What Is Demo vs Production-Shaped
+
+| Surface | Status |
+| --- | --- |
+| local deterministic runtime | demo/development only |
+| immutable version policy | real portable domain policy |
+| provisioning retries/idempotency | real portable domain policy |
+| signed callback verification | real API-edge implementation |
+| publication revocation checks | real portable domain policy |
+| Docker production package | production-shaped packaging, not a claim of hosted adoption |
+| Claude runtime adapter | real provider integration requiring credentials |
+
+## Ecosystem Path
+
+**Learn → Pattern → Run → Platform → Govern → Operate**
+
+[AI Tools Cheatsheets](https://github.com/AnkitParekh007/ai-tools-cheatsheets) → [Frontend AI Patterns](https://github.com/AnkitParekh007/frontend-ai-patterns) → [Angular AI Copilot Starter](https://github.com/AnkitParekh007/angular-ai-copilot-starter) → [ngx-copilot-platform](https://github.com/AnkitParekh007/ngx-copilot-platform) → **Agent Studio** → [Org AI Force](https://github.com/AnkitParekh007/org-ai-force)
