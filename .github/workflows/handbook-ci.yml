@@ -1,0 +1,39 @@
+name: Handbook CI
+
+on:
+  pull_request:
+    paths:
+      - 'handbook/**'
+      - '.github/workflows/deploy-handbook-pages.yml'
+      - '.github/workflows/handbook-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'handbook/**'
+      - '.github/workflows/deploy-handbook-pages.yml'
+      - '.github/workflows/handbook-ci.yml'
+
+jobs:
+  build-handbook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: handbook/package-lock.json
+
+      - name: Install handbook dependencies
+        working-directory: handbook
+        run: npm ci
+
+      - name: Build HonKit handbook
+        working-directory: handbook
+        run: npm run build
+
+      - name: Verify handbook artifact
+        run: test -f handbook/_book/index.html
