@@ -1,0 +1,48 @@
+name: Capture Public Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/capture-public-proof.cjs'
+      - '.github/workflows/capture-public-proof.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  capture-handbook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install isolated Playwright runtime
+        run: |
+          mkdir -p /tmp/public-proof-playwright
+          cd /tmp/public-proof-playwright
+          npm init -y
+          npm install --no-audit --no-fund playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Capture hosted handbook
+        env:
+          NODE_PATH: /tmp/public-proof-playwright/node_modules
+          CAPTURE_MODE: handbook
+          CAPTURE_BASE_URL: https://ankitparekh007.github.io/agent-studio/
+          CAPTURE_OUTPUT_DIR: ${{ runner.temp }}/public-proof-captures
+        run: node scripts/capture-public-proof.cjs
+
+      - name: Upload handbook proof captures
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-studio-handbook-public-proof
+          path: ${{ runner.temp }}/public-proof-captures
+          if-no-files-found: error
+          retention-days: 30
