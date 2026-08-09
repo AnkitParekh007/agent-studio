@@ -16,7 +16,7 @@ Read these ideas first:
 Then scan:
 
 - [`README.md`](../README.md)
-- [`docs/architecture.md`](architecture.md) if present in your checkout, plus the architecture/ADR directory
+- [`docs/`](./) for product, security, deployment, testing, and roadmap material
 - [`packages/domain/`](../packages/domain/) for version/provisioning/publication policy
 - [`apps/api/`](../apps/api/) for signed callback enforcement at the API edge
 
