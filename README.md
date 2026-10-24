@@ -6,6 +6,16 @@ Claude Managed Agents is the first execution provider. The domain model stays pr
 
 **[Live handbook](https://ankitparekh007.github.io/agent-studio/)** · **[Public proof](docs/public-proof.md)** · **[Engineering docs](docs/)** · **[Roadmap](docs/roadmap.md)**
 
+## Architecture decision brief for hiring managers
+
+**Problem:** An agent application factory needs durable approval/version semantics, safe provisioning retries and revocation across runtime surfaces.
+
+**Decisions and tradeoffs:** Immutable agent versions preserve review history; only the current approved version can run; idempotent provisioning and attempt-aware signed callbacks guard against retries and stale results. A provider-neutral runtime adapter improves portability but requires additional integration testing for each provider.
+
+**Review evidence:** [Public proof](docs/public-proof.md) · [Engineering documentation](docs/) · [Hosted handbook](https://ankitparekh007.github.io/agent-studio/).
+
+**Validation boundary:** The hosted handbook is static documentation, not a live public SaaS control plane. Governance rules and local demonstration paths should be verified with current automated tests and actual provider integrations before claiming production readiness.
+
 ## Review This Repo In 30 Seconds
 
 Agent Studio is the **governance/control-plane** proof in this portfolio.
