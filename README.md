@@ -1,4 +1,9 @@
-# Agent Studio
+# Agent Studio — Governed AI Agent Application Factory
+
+**Enterprise AI architecture proof: control plane, version governance, lifecycle policies, provider-neutral runtimes**
+
+**For engineering reviewers:** [Architecture proof](docs/public-proof.md) · [Governed lifecycle](docs/roadmap.md) · [Static documentation site](https://ankitparekh007.github.io/agent-studio/)
+
 
 Enterprise Agent Application Factory: define an agent once, govern it centrally, and publish it as a secure web application, desktop shell, embedded copilot, or API.
 
